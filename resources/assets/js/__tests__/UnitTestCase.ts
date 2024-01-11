@@ -43,6 +43,7 @@ export default abstract class UnitTestCase {
 
   protected beforeEach (cb?: Closure) {
     beforeEach(() => {
+      commonStore.state.song_length = 10
       commonStore.state.allow_download = true
       commonStore.state.use_i_tunes = true
       cb && cb()
@@ -51,6 +52,7 @@ export default abstract class UnitTestCase {
 
   protected afterEach (cb?: Closure) {
     afterEach(() => {
+      commonStore.state.song_length = 10
       cleanup()
       this.restoreAllMocks()
       isMobile.any = false
@@ -98,7 +100,7 @@ export default abstract class UnitTestCase {
           'koel-overflow-fade': {}
         },
         components: {
-          icon: this.stub('icon')
+          Icon: this.stub('Icon')
         }
       }
     }, this.supplyRequiredProvides(options)))

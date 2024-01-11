@@ -1,7 +1,7 @@
 <template>
   <span>
     <input :checked="checked" type="checkbox" v-bind="$attrs" @input="onInput">
-    <icon v-if="checked" :icon="faCheck" />
+    <Icon v-if="checked" :icon="faCheck" />
   </span>
 </template>
 
@@ -32,6 +32,6 @@ svg {
   color: var(--color-highlight);
   position: absolute;
   top: 1px;
-  left: 2px;
+  left: 1px;
 }
 </style>

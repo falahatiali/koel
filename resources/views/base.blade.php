@@ -11,7 +11,6 @@
     <meta name="theme-color" content="#282828">
     <meta name="msapplication-navbutton-color" content="#282828">
 
-    <base href="{{ asset('') }}">
     <link rel="manifest" href="{{ static_url('manifest.json') }}"/>
     <meta name="msapplication-config" content="{{ static_url('browserconfig.xml') }}"/>
     <link rel="icon" type="image/x-icon" href="{{ static_url('img/favicon.ico') }}"/>

@@ -71,8 +71,12 @@ export const userStore = {
 
   async store (data: CreateUserData) {
     const user = await http.post<User>('users', data)
-    this.state.users.push(...this.syncWithVault(user))
+    this.add(user)
     return this.byId(user.id)
+  },
+
+  add (user: User) {
+    this.state.users.push(...this.syncWithVault(user))
   },
 
   async update (user: User, data: UpdateUserData) {
@@ -81,8 +85,7 @@ export const userStore = {
 
   async destroy (user: User) {
     await http.delete(`users/${user.id}`)
-    this.state.users = differenceBy(this.state.users, [user], 'id')
-    this.vault.delete(user.id)
+    this.remove(user)
 
     // Mama, just killed a man
     // Put a gun against his head
@@ -102,5 +105,10 @@ export const userStore = {
     // Mama, oooh
     // I don't want to die
     // I sometimes wish I'd never been born at all
+  },
+
+  remove (user: User) {
+    this.state.users = differenceBy(this.state.users, [user], 'id')
+    this.vault.delete(user.id)
   }
 }

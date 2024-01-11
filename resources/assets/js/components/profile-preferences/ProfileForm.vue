@@ -10,6 +10,7 @@
           placeholder="Required to update your profile"
           required
           type="password"
+          data-testid="currentPassword"
         >
       </label>
     </div>
@@ -17,28 +18,26 @@
     <div class="form-row">
       <label>
         Name
-        <input id="inputProfileName" v-model="profile.name" name="name" required type="text">
+        <input id="inputProfileName" v-model="profile.name" name="name" required type="text" data-testid="name">
       </label>
     </div>
 
     <div class="form-row">
       <label>
         Email Address
-        <input id="inputProfileEmail" v-model="profile.email" name="email" required type="email">
+        <input id="inputProfileEmail" v-model="profile.email" name="email" required type="email" data-testid="email">
       </label>
     </div>
 
     <div class="form-row">
       <label>
         New Password
-        <input
-          id="inputProfileNewPassword"
-          v-model="profile.new_password"
-          autocomplete="new-password"
-          name="new_password"
+        <PasswordField
           placeholder="Leave empty to keep current password"
-          type="password"
-        >
+          v-model="profile.new_password"
+          data-testid="newPassword"
+          autocomplete="new-password"
+        />
         <span class="password-rules help">
           Min. 10 characters. Should be a mix of characters, numbers, and symbols.
         </span>
@@ -61,6 +60,7 @@ import { isDemo, logger, parseValidationError } from '@/utils'
 import { useDialogBox, useMessageToaster } from '@/composables'
 
 import Btn from '@/components/ui/Btn.vue'
+import PasswordField from '@/components/ui/PasswordField.vue'
 
 const { toastSuccess } = useMessageToaster()
 const { showErrorDialog } = useDialogBox()
@@ -85,7 +85,7 @@ const update = async () => {
   }
 
   try {
-    await userStore.updateProfile(profile.value)
+    await userStore.updateProfile(Object.assign({}, profile.value))
     profile.value.current_password = null
     delete profile.value.new_password
     toastSuccess('Profile updated.')
@@ -98,9 +98,11 @@ const update = async () => {
 </script>
 
 <style lang="scss" scoped>
-input {
-  &[type="text"], &[type="email"], &[type="password"] {
-    width: 33%;
+form {
+  width: 33%;
+
+  input {
+    width: 100%;
   }
 }
 

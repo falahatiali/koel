@@ -33,12 +33,13 @@ class SearchService
         $scopedUser ??= auth()->user();
 
         return ExcerptSearchResult::make(
-            $this->songRepository->getByIds(
-                Song::search($keywords)->get()->take($count)->pluck('id')->all(),
-                $scopedUser
+            $this->songRepository->getMany(
+                ids: Song::search($keywords)->get()->take($count)->pluck('id')->all(),
+                inThatOrder: true,
+                scopedUser: $scopedUser
             ),
-            $this->artistRepository->getByIds(Artist::search($keywords)->get()->take($count)->pluck('id')->all()),
-            $this->albumRepository->getByIds(Album::search($keywords)->get()->take($count)->pluck('id')->all()),
+            $this->artistRepository->getMany(Artist::search($keywords)->get()->take($count)->pluck('id')->all(), true),
+            $this->albumRepository->getMany(Album::search($keywords)->get()->take($count)->pluck('id')->all(), true),
         );
     }
 

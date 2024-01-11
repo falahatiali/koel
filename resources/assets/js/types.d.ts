@@ -152,6 +152,13 @@ interface Song {
   deleted?: boolean
 }
 
+interface QueueState {
+  type: 'queue-states'
+  songs: Song[]
+  current_song: Song | null
+  playback_position: number
+}
+
 interface SmartPlaylistRuleGroup {
   id: string
   rules: SmartPlaylistRule[]
@@ -242,6 +249,7 @@ interface User {
   name: string
   email: string
   is_admin: boolean
+  is_prospect: boolean
   password?: string
   preferences?: UserPreferences
   avatar: string
@@ -310,6 +318,7 @@ declare type ScreenName =
   | 'Upload'
   | 'Search.Excerpt'
   | 'Search.Songs'
+  | 'Invitation.Accept'
   | '404'
 
 declare type ArtistAlbumCardLayout = 'full' | 'compact'
@@ -333,6 +342,8 @@ type ThemeableProperty = '--color-text-primary'
   | '--color-bg-primary'
   | '--color-bg-secondary'
   | '--color-highlight'
+  | '--color-bg-input'
+  | '--color-text-input'
   | '--bg-image'
   | '--bg-position'
   | '--bg-attachment'

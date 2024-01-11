@@ -14,11 +14,6 @@ class AlbumRepository extends Repository
 {
     use Searchable;
 
-    public function getOne(int $id): Album
-    {
-        return Album::query()->find($id);
-    }
-
     /** @return Collection|array<array-key, Album> */
     public function getRecentlyAdded(int $count = 6): Collection
     {
@@ -43,14 +38,6 @@ class AlbumRepository extends Repository
             ->orderByDesc('play_count')
             ->limit($count)
             ->get('albums.*');
-    }
-
-    /** @return Collection|array<array-key, Album> */
-    public function getByIds(array $ids): Collection
-    {
-        return Album::query()
-            ->whereIn('id', $ids)
-            ->get();
     }
 
     /** @return Collection|array<array-key, Album> */

@@ -37,18 +37,15 @@ class ArtistRepository extends Repository
             ->get('artists.*');
     }
 
-    public function getOne(int $id): Artist
-    {
-        return Artist::query()->find($id);
-    }
-
     /** @return Collection|array<array-key, Artist> */
-    public function getByIds(array $ids): Collection
+    public function getMany(array $ids, bool $inThatOrder = false): Collection
     {
-        return Artist::query()
+        $artists = Artist::query()
             ->isStandard()
             ->whereIn('id', $ids)
             ->get();
+
+        return $inThatOrder ? $artists->orderByArray($ids) : $artists;
     }
 
     public function paginate(): Paginator

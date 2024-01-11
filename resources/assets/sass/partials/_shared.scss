@@ -14,7 +14,7 @@
 }
 
 ::placeholder {
-  color: rgba(255, 255, 255, 0.5);
+  color: rgba(0, 0, 0, .5);
 }
 
 body,
@@ -43,6 +43,8 @@ textarea,
   padding: .5rem .6rem;
   border-radius: .3rem;
   margin: 0;
+  background: var(--color-bg-input);
+  color: var(--color-input);
 
   &:required,
   &:invalid {
@@ -57,6 +59,11 @@ textarea,
 
   &[type="text"] {
     display: block;
+  }
+
+  &[disabled] {
+    opacity: .5;
+    cursor: not-allowed;
   }
 
   &:focus {
@@ -363,7 +370,7 @@ menu {
           width: 75%;
           z-index: 2;
 
-          animation: subMenuHoverHelp 1.5s;
+          animation: subMenuHoverHelp 1s;
         }
 
         &::before {
