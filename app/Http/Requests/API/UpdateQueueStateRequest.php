@@ -2,20 +2,18 @@
 
 namespace App\Http\Requests\API;
 
-use App\Models\Song;
-use Illuminate\Validation\Rule;
+use App\Rules\AllPlayablesAreAccessibleBy;
 
 /**
  * @property-read array<string> $songs
  */
 class UpdateQueueStateRequest extends Request
 {
-    /** @return array<mixed> */
+    /** @inheritdoc */
     public function rules(): array
     {
         return [
-            'songs' => 'array',
-            'songs.*' => [Rule::exists(Song::class, 'id')],
+            'songs' => ['required', 'array', new AllPlayablesAreAccessibleBy($this->user())],
         ];
     }
 }

@@ -47,10 +47,11 @@ export const secondsToHis = (total: number) => {
   return parts.join(':')
 }
 
-export type ServerValidationError = {
+export interface ServerValidationError {
   message: string
   errors: Record<string, string[]>
 }
+
 /**
  * Parse the validation error from the server into a flattened array of messages.
  */
@@ -69,12 +70,38 @@ export const parseValidationError = (error: ServerValidationError) => {
  */
 export const br2nl = (str: string) => str ? str.replace(/<br\s*\/?>/gi, '\n') : ''
 
+/**
+ * Turn carriage returns (\r) to line feeds (\n) using JavaScript's implicit DOM-writing behavior
+ */
+export const cr2lf = (str: string) => {
+  const div = document.createElement('div')
+  div.innerHTML = str
+  return div.innerHTML
+}
+
 export const slugToTitle = (slug: string, separator = '-') => {
-  let title = slug.split(separator).map(w => w.charAt(0).toUpperCase() + w.substring(1).toLowerCase()).join(' ')
+  const title = slug.split(separator).map(w => w.charAt(0).toUpperCase() + w.substring(1).toLowerCase()).join(' ')
   return title.replace(/\s+/g, ' ').trim()
 }
 
 export const pluralize = (count: any[] | number | undefined, singular: string) => {
   count = Array.isArray(count) ? count.length : (count ?? 0)
   return count === 1 ? `${count} ${singular}` : `${count.toLocaleString()} ${singular}s`
+}
+
+const fnv1a = (str: string) => {
+  let h = 0x811C9DC5
+
+  for (let i = 0; i < str.length; i++) {
+    h ^= str.charCodeAt(i)
+    h = (h >>> 0) * 0x01000193
+  }
+
+  return h >>> 0
+}
+
+export const textToHsl = (text: string, s = 65, l = 55) => {
+  const hash = fnv1a(text)
+  const h = hash % 360
+  return `hsl(${h} ${s}% ${l}%)`
 }

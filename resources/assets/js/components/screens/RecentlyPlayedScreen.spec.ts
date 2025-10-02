@@ -1,41 +1,40 @@
-import { expect, it } from 'vitest'
-import factory from '@/__tests__/factory'
-import UnitTestCase from '@/__tests__/UnitTestCase'
-import { recentlyPlayedStore } from '@/stores'
 import { screen, waitFor } from '@testing-library/vue'
-import RecentlyPlayedScreen from './RecentlyPlayedScreen.vue'
+import { describe, expect, it } from 'vitest'
+import { createHarness } from '@/__tests__/TestHarness'
+import { recentlyPlayedStore } from '@/stores/recentlyPlayedStore'
+import Component from './RecentlyPlayedScreen.vue'
 
-new class extends UnitTestCase {
-  private async renderComponent (songs: Song[]) {
-    recentlyPlayedStore.state.songs = songs
-    const fetchMock = this.mock(recentlyPlayedStore, 'fetch')
+describe('recentlyPlayedScreen.vue', () => {
+  const h = createHarness()
 
-    this.render(RecentlyPlayedScreen, {
+  const renderComponent = async (playables: Playable[] = []) => {
+    recentlyPlayedStore.state.playables = playables
+    const fetchMock = h.mock(recentlyPlayedStore, 'fetch')
+
+    h.render(Component, {
       global: {
         stubs: {
-          SongList: this.stub('song-list')
-        }
-      }
+          PlayableList: h.stub('song-list'),
+        },
+      },
     })
 
-    await this.router.activateRoute({ path: 'recently-played', screen: 'RecentlyPlayed' })
+    h.visit('/recently-played')
 
     await waitFor(() => expect(fetchMock).toHaveBeenCalled())
   }
 
-  protected test () {
-    it('displays the songs', async () => {
-      await this.renderComponent(factory<Song>('song', 3))
+  it('displays the songs', async () => {
+    await renderComponent(h.factory('song', 3))
 
-      screen.getByTestId('song-list')
-      expect(screen.queryByTestId('screen-empty-state')).toBeNull()
-    })
+    screen.getByTestId('song-list')
+    expect(screen.queryByTestId('screen-empty-state')).toBeNull()
+  })
 
-    it('displays the empty state', async () => {
-      await this.renderComponent([])
+  it('displays the empty state', async () => {
+    await renderComponent()
 
-      expect(screen.queryByTestId('song-list')).toBeNull()
-      screen.getByTestId('screen-empty-state')
-    })
-  }
-}
+    screen.getByTestId('screen-empty-state')
+    expect(screen.queryByTestId('song-list')).toBeNull()
+  })
+})

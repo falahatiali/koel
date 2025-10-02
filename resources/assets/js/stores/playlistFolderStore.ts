@@ -1,22 +1,23 @@
-import { reactive, UnwrapNestedRefs } from 'vue'
-import { http } from '@/services'
+import type { UnwrapNestedRefs } from 'vue'
+import { reactive } from 'vue'
+import { http } from '@/services/http'
 import { differenceBy, orderBy } from 'lodash'
 import { playlistStore } from '@/stores/playlistStore'
 
 export const playlistFolderStore = {
-  state: reactive({
-    folders: [] as PlaylistFolder[]
+  state: reactive<{ folders: PlaylistFolder [] }>({
+    folders: [],
   }),
 
   init (folders: PlaylistFolder[]) {
     this.state.folders = this.sort(reactive(folders))
   },
 
-  byId (id: string) {
+  byId (id: PlaylistFolder['id']) {
     return this.state.folders.find(folder => folder.id === id)
   },
 
-  async store (name: string) {
+  async store (name: PlaylistFolder['name']) {
     const folder = reactive(await http.post<PlaylistFolder>('playlist-folders', { name }))
 
     this.state.folders.push(folder)
@@ -31,9 +32,9 @@ export const playlistFolderStore = {
     playlistStore.byFolder(folder).forEach(playlist => (playlist.folder_id = null))
   },
 
-  async rename (folder: PlaylistFolder, name: string) {
+  async rename (folder: PlaylistFolder, name: PlaylistFolder['name']) {
     await http.put(`playlist-folders/${folder.id}`, { name })
-    this.byId(folder.id).name = name
+    this.byId(folder.id)!.name = name
   },
 
   async addPlaylistToFolder (folder: PlaylistFolder, playlist: Playlist) {
@@ -50,5 +51,5 @@ export const playlistFolderStore = {
     await http.delete(`playlist-folders/${folder.id}/playlists`, { playlists: [playlist.id] })
   },
 
-  sort: (folders: PlaylistFolder[] | UnwrapNestedRefs<PlaylistFolder>[]) => orderBy(folders, 'name')
+  sort: (folders: PlaylistFolder[] | UnwrapNestedRefs<PlaylistFolder>[]) => orderBy(folders, 'name'),
 }

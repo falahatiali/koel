@@ -1,12 +1,12 @@
-import { Faker } from '@faker-js/faker'
 import factory from 'factoria'
+import { faker } from '@faker-js/faker'
 
-export default (faker: Faker): AlbumInfo => ({
-  cover: faker.image.imageUrl(),
+export default (): AlbumInfo => ({
+  cover: faker.image.url(),
   wiki: {
     summary: faker.lorem.sentence(),
-    full: faker.lorem.sentences(4)
+    full: faker.lorem.sentences(4),
   },
-  tracks: factory<AlbumTrack>('album-track', 8),
-  url: faker.internet.url()
+  tracks: factory('album-track', 8) as unknown as AlbumTrack[],
+  url: faker.internet.url(),
 })

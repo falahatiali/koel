@@ -1,58 +1,62 @@
-import { expect, it } from 'vitest'
-import UnitTestCase from '@/__tests__/UnitTestCase'
+import { describe, expect, it } from 'vitest'
 import { screen } from '@testing-library/vue'
-import { UploadFile, uploadService, UploadStatus } from '@/services'
-import Btn from '@/components/ui/Btn.vue'
-import UploadItem from './UploadItem.vue'
+import { createHarness } from '@/__tests__/TestHarness'
+import type { UploadStatus } from '@/services/uploadService'
+import { uploadService } from '@/services/uploadService'
+import Btn from '@/components/ui/form/Btn.vue'
+import Component from './UploadItem.vue'
 
-let file: UploadFile
+describe('uploadItem.vue', () => {
+  const h = createHarness()
 
-new class extends UnitTestCase {
-  private renderComponent (status: UploadStatus) {
-    file = {
+  const renderComponent = (status: UploadStatus) => {
+    const file = {
       status,
       file: new File([], 'sample.mp3'),
       id: 'x-file',
       message: '',
       name: 'Sample Track',
-      progress: 42
+      progress: 42,
     }
 
-    return this.render(UploadItem, {
+    const rendered = h.render(Component, {
       props: {
-        file
+        file,
       },
       global: {
         stubs: {
-          Btn
-        }
-      }
+          Btn,
+        },
+      },
     })
+
+    return {
+      ...rendered,
+      file,
+    }
   }
 
-  protected test () {
-    it('renders', () => expect(this.renderComponent('Canceled').html()).toMatchSnapshot())
+  it('renders', () => expect(renderComponent('Canceled').html()).toMatchSnapshot())
 
-    it.each<[UploadStatus]>([['Canceled'], ['Errored']])('allows retrying when %s', async status => {
-      const mock = this.mock(uploadService, 'retry')
-      this.renderComponent(status)
+  it.each<[UploadStatus]>([['Canceled'], ['Errored']])('allows retrying when %s', async status => {
+    const mock = h.mock(uploadService, 'retry')
+    renderComponent(status)
 
-      await this.user.click(screen.getByRole('button', { name: 'Retry' }))
+    await h.user.click(screen.getByRole('button', { name: 'Retry' }))
 
-      expect(mock).toHaveBeenCalled()
-    })
+    expect(mock).toHaveBeenCalled()
+  })
 
-    it.each<[UploadStatus]>([
-      ['Uploaded'],
-      ['Errored'],
-      ['Canceled']]
-    )('allows removal if not uploading', async status => {
-      const mock = this.mock(uploadService, 'remove')
-      this.renderComponent(status)
+  it.each<[UploadStatus]>([
+    ['Uploaded'],
+    ['Errored'],
+    ['Canceled'],
+  ])('allows removal if not uploading', async status => {
+    const mock = h.mock(uploadService, 'remove')
+    renderComponent(status)
 
-      await this.user.click(screen.getByRole('button', { name: 'Remove' }))
+    await h.user.click(screen.getByRole('button', { name: 'Remove' }))
 
-      expect(mock).toHaveBeenCalled()
-    })
-  }
-}
+    expect(mock).toHaveBeenCalled()
+  })
+})

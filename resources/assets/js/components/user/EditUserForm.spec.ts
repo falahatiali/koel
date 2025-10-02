@@ -1,43 +1,55 @@
 import { ref } from 'vue'
-import { expect, it } from 'vitest'
-import factory from '@/__tests__/factory'
-import UnitTestCase from '@/__tests__/UnitTestCase'
-import { ModalContextKey } from '@/symbols'
-import { screen, waitFor } from '@testing-library/vue'
-import { userStore } from '@/stores'
+import { fireEvent, screen, waitFor } from '@testing-library/vue'
+import { describe, expect, it } from 'vitest'
+import { createHarness } from '@/__tests__/TestHarness'
 import { MessageToasterStub } from '@/__tests__/stubs'
-import EditUserForm from './EditUserForm.vue'
+import { ModalContextKey } from '@/symbols'
+import { userStore } from '@/stores/userStore'
+import Component from './EditUserForm.vue'
 
-new class extends UnitTestCase {
-  protected test () {
-    it('edits a user', async () => {
-      const updateMock = this.mock(userStore, 'update')
-      const alertMock = this.mock(MessageToasterStub.value, 'success')
+describe('editUserForm.vue', () => {
+  const h = createHarness()
 
-      const user = ref(factory<User>('user', { name: 'John Doe' }))
+  const renderComponent = (user?: User) => {
+    user = user ?? h.factory('user')
 
-      this.render(EditUserForm, {
-        global: {
-          provide: {
-            [<symbol>ModalContextKey]: [ref({ user })]
-          }
-        }
-      })
-
-      await this.type(screen.getByRole('textbox', { name: 'Name' }), 'Jane Doe')
-      await this.type(screen.getByLabelText('Password'), 'new-password-duck')
-      await this.user.click(screen.getByRole('button', { name: 'Update' }))
-
-      await waitFor(() => {
-        expect(updateMock).toHaveBeenCalledWith(user.value, {
-          name: 'Jane Doe',
-          email: user.value.email,
-          is_admin: user.value.is_admin,
-          password: 'new-password-duck'
-        })
-
-        expect(alertMock).toHaveBeenCalledWith('User profile updated.')
-      })
+    const rendered = h.render(Component, {
+      global: {
+        stubs: {
+          RolePicker: h.stub('role-picker', true),
+        },
+        provide: {
+          [<symbol>ModalContextKey]: ref({ user }),
+        },
+      },
     })
+
+    return {
+      ...rendered,
+      user,
+    }
   }
-}
+
+  it('edits a user', async () => {
+    const updateMock = h.mock(userStore, 'update')
+    const alertMock = h.mock(MessageToasterStub.value, 'success')
+
+    const { user } = renderComponent()
+
+    await h.type(screen.getByRole('textbox', { name: 'name' }), 'Jane Doe')
+    await h.type(screen.getByPlaceholderText('Leave blank for no changes'), 'new-password-duck')
+    await fireEvent.update(screen.getByTestId('role-picker'), 'manager')
+    await h.user.click(screen.getByRole('button', { name: 'Update' }))
+
+    await waitFor(() => {
+      expect(updateMock).toHaveBeenCalledWith(user, {
+        name: 'Jane Doe',
+        email: user.email,
+        role: 'manager',
+        password: 'new-password-duck',
+      })
+
+      expect(alertMock).toHaveBeenCalledWith('User profile updated.')
+    })
+  })
+})

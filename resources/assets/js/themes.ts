@@ -14,67 +14,93 @@ import bgCat from '../img/themes/bg-cat.jpg'
 import thumbCat from '../img/themes/thumbnails/cat.jpg'
 import bgDawn from '../img/themes/bg-dawn.jpg'
 import thumbDawn from '../img/themes/thumbnails/dawn.jpg'
+import thumbMono from '../img/themes/thumbnails/mono.avif'
 
 export default [
   {
     id: 'classic',
-    thumbnailColor: '#181818'
+    name: 'Classic',
+    thumbnailColor: '#181818',
+  },
+  {
+    id: 'mono',
+    name: 'Mono',
+    thumbnailColor: '#181818',
+    thumbnailUrl: thumbMono,
+    properties: {
+      '--font-family': 'ui-monospace, SFMono-Regular, Consolas, "Liberation Mono", monospace',
+      '--color-highlight': '#bc2e2e',
+    },
   },
   {
     id: 'violet',
+    name: 'Violet',
     thumbnailColor: '#31094e',
     properties: {
+      '--color-bg-secondary': '#360f52',
       '--color-bg-primary': '#31094e',
-      '--color-highlight': '#c23de5'
-    }
+      '--color-highlight': '#c23de5',
+    },
   },
   {
     id: 'oak',
+    name: 'Oak',
     thumbnailColor: '#560d25',
     properties: {
+      '--color-bg-secondary': '#5a132a',
       '--color-bg-primary': '#560d25',
-      '--color-highlight': '#fd4b67'
-    }
+      '--color-highlight': '#fd4b67',
+    },
   },
   {
     id: 'slate',
+    name: 'Slate',
     thumbnailColor: '#29434e',
     properties: {
+      '--color-bg-secondary': '#2e4752',
       '--color-bg-primary': '#29434e',
-      '--color-highlight': '#6c8b99'
-    }
+      '--color-highlight': '#6c8b99',
+    },
   },
   {
     id: 'madison',
+    name: 'Madison',
     thumbnailColor: '#0e3463',
     properties: {
+      '--color-bg-secondary': '#143967',
       '--color-bg-primary': '#0e3463',
-      '--color-bg-highlight': '#fbab18'
-    }
+      '--color-bg-highlight': '#fbab18',
+    },
   },
   {
     id: 'astronaut',
+    name: 'Astronaut',
     thumbnailColor: '#2a3074',
     properties: {
+      '--color-bg-secondary': '#2f3577',
       '--color-bg-primary': '#2a3074',
-      '--color-highlight': '#7a78dd'
-    }
+      '--color-highlight': '#7a78dd',
+    },
   },
   {
     id: 'chocolate',
+    name: 'Chocolate',
     thumbnailColor: '#3f2724',
     properties: {
+      '--color-bg-secondary': '#442c29',
       '--color-bg-primary': '#3f2724',
-      '--color-highlight': '#d96759'
-    }
+      '--color-highlight': '#d96759',
+    },
   },
   {
     id: 'laura',
+    name: 'Laura',
     thumbnailColor: '#126673',
     properties: {
+      '--color-bg-secondary': '#186a76',
       '--color-bg-primary': '#126673',
-      '--color-highlight': 'rgba(10, 244, 255, .64)'
-    }
+      '--color-highlight': 'rgba(10, 244, 255, .64)',
+    },
   },
   {
     id: 'dawn',
@@ -84,9 +110,10 @@ export default [
       '--color-highlight': '#ed5135',
       '--color-accent': '#f4944f',
       '--bg-image': `url(${bgDawn})`,
+      '--color-bg-secondary': 'rgba(255, 255, 255, .025)',
       '--color-bg-primary': '#1e2747',
-      '--bg-position': 'center bottom'
-    }
+      '--bg-position': 'center bottom',
+    },
   },
   {
     id: 'rose-petals',
@@ -94,40 +121,45 @@ export default [
     thumbnailColor: '#7d083b',
     thumbnailUrl: bgRosePetal,
     properties: {
+      '--color-bg-secondary': 'rgba(255, 255, 255, .025)',
       '--color-bg-primary': '#7d083b',
-      '--bg-image': `url(${bgRosePetal})`
-    }
+      '--bg-image': `url(${bgRosePetal})`,
+    },
   },
   {
     id: 'purple-waves',
-    name: 'Waves of Fortune',
+    name: 'Fortune Waves',
     thumbnailColor: '#44115c',
     thumbnailUrl: bgPurpleWaves,
     properties: {
+      '--color-bg-secondary': 'rgba(255, 255, 255, .025)',
       '--color-bg-primary': '#44115c',
-      '--bg-image': `url(${bgPurpleWaves})`
-    }
+      '--bg-image': `url(${bgPurpleWaves})`,
+    },
   },
   {
     id: 'pop-culture',
+    name: 'Pop Culture',
     thumbnailColor: '#ad0937',
     thumbnailUrl: thumbPopCulture,
     properties: {
+      '--color-bg-secondary': 'rgba(255, 255, 255, .025)',
       '--color-bg-primary': '#ad0937',
       '--color-highlight': 'rgba(234, 208, 110, .9)',
-      '--bg-image': `url(${bgPopCulture})`
-    }
+      '--bg-image': `url(${bgPopCulture})`,
+    },
   },
   {
     id: 'jungle',
-    name: 'Welcome to the Jungle',
+    name: 'To the Jungle',
     thumbnailColor: '#0f0f03',
     thumbnailUrl: thumbJungle,
     properties: {
+      '--color-bg-secondary': 'rgba(255, 255, 255, .025)',
       '--color-bg-primary': '#0f0f03',
       '--color-highlight': '#4f9345',
-      '--bg-image': `url(${bgJungle})`
-    }
+      '--bg-image': `url(${bgJungle})`,
+    },
   },
   {
     id: 'mountains',
@@ -135,10 +167,11 @@ export default [
     thumbnailColor: '#0e2656',
     thumbnailUrl: thumbMountains,
     properties: {
+      '--color-bg-secondary': 'rgba(255, 255, 255, .025)',
       '--color-bg-primary': '#0e2656',
       '--color-highlight': '#6488c3',
-      '--bg-image': `url(${bgMountains})`
-    }
+      '--bg-image': `url(${bgMountains})`,
+    },
   },
   {
     id: 'pines',
@@ -146,20 +179,23 @@ export default [
     thumbnailColor: '#06090c',
     thumbnailUrl: thumbPines,
     properties: {
+      '--color-bg-secondary': 'rgba(255, 255, 255, .025)',
       '--color-bg-primary': '#06090c',
       '--color-highlight': '#5984b9',
-      '--bg-image': `url(${bgPines})`
-    }
+      '--bg-image': `url(${bgPines})`,
+    },
   },
   {
     id: 'nemo',
+    name: 'Nemo',
     thumbnailColor: '#031724',
     thumbnailUrl: thumbNemo,
     properties: {
+      '--color-bg-secondary': 'rgba(255, 255, 255, .025)',
       '--color-bg-primary': '#031724',
       '--color-highlight': '#2896b8',
-      '--bg-image': `url(${bgNemo})`
-    }
+      '--bg-image': `url(${bgNemo})`,
+    },
   },
   {
     id: 'cat',
@@ -167,10 +203,11 @@ export default [
     thumbnailColor: '#000',
     thumbnailUrl: thumbCat,
     properties: {
+      '--color-bg-secondary': 'rgba(255, 255, 255, .025)',
       '--color-bg-primary': '#000',
       '--color-highlight': '#d26c37',
       '--bg-image': `url(${bgCat})`,
-      '--bg-position': 'left'
-    }
-  }
+      '--bg-position': 'left',
+    },
+  },
 ] as Theme[]

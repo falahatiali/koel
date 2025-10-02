@@ -1,0 +1,29 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`podcastContextMenu.vue > renders 1`] = `
+<ul>
+  <li class="">
+    <!--v-if-->Play All
+    <!--v-if-->
+  </li>
+  <li class="">
+    <!--v-if-->Shuffle All
+    <!--v-if-->
+  </li>
+  <li class="separator"></li>
+  <li class="">
+    <!--v-if-->Favorite
+    <!--v-if-->
+  </li>
+  <li class="separator"></li>
+  <li class="">
+    <!--v-if-->Visit Website
+    <!--v-if-->
+  </li>
+  <li class="separator"></li>
+  <li class="">
+    <!--v-if-->Unsubscribe
+    <!--v-if-->
+  </li>
+</ul>
+`;

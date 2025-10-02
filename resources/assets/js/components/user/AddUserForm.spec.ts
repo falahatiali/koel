@@ -1,34 +1,48 @@
-import { expect, it } from 'vitest'
-import UnitTestCase from '@/__tests__/UnitTestCase'
-import { screen, waitFor } from '@testing-library/vue'
-import { userStore } from '@/stores'
+import { describe, expect, it } from 'vitest'
+import { fireEvent, screen, waitFor } from '@testing-library/vue'
+import { createHarness } from '@/__tests__/TestHarness'
 import { MessageToasterStub } from '@/__tests__/stubs'
-import AddUserForm from './AddUserForm.vue'
+import { userStore } from '@/stores/userStore'
+import Component from './AddUserForm.vue'
 
-new class extends UnitTestCase {
-  protected test () {
-    it('creates a new user', async () => {
-      const storeMock = this.mock(userStore, 'store')
-      const alertMock = this.mock(MessageToasterStub.value, 'success')
+describe('addUserForm.vue', () => {
+  const h = createHarness()
 
-      this.render(AddUserForm)
-
-      await this.type(screen.getByRole('textbox', { name: 'Name' }), 'John Doe')
-      await this.type(screen.getByRole('textbox', { name: 'Email' }), 'john@doe.com')
-      await this.type(screen.getByLabelText('Password'), 'secret-password')
-      await this.user.click(screen.getByRole('checkbox'))
-      await this.user.click(screen.getByRole('button', { name: 'Save' }))
-
-      await waitFor(() => {
-        expect(storeMock).toHaveBeenCalledWith({
-          name: 'John Doe',
-          email: 'john@doe.com',
-          password: 'secret-password',
-          is_admin: true
-        })
-
-        expect(alertMock).toHaveBeenCalledWith('New user "John Doe" created.')
-      })
+  const renderComponent = () => {
+    return h.render(Component, {
+      global: {
+        stubs: {
+          RolePicker: h.stub('role-picker', true),
+        },
+      },
     })
   }
-}
+
+  it('creates a new user', async () => {
+    const storeMock = h.mock(userStore, 'store').mockResolvedValue(h.factory('user', {
+      name: 'John Doe',
+      email: 'john@doe.com',
+    }))
+
+    const toasterMock = h.mock(MessageToasterStub.value, 'success')
+
+    renderComponent()
+
+    await h.type(screen.getByRole('textbox', { name: 'name' }), 'John Doe')
+    await h.type(screen.getByRole('textbox', { name: 'email' }), 'john@doe.com')
+    await h.type(screen.getByTitle('Password'), 'secret-password')
+    await fireEvent.update(screen.getByTestId('role-picker'), 'admin')
+    await h.user.click(screen.getByRole('button', { name: 'Save' }))
+
+    await waitFor(() => {
+      expect(storeMock).toHaveBeenCalledWith({
+        name: 'John Doe',
+        email: 'john@doe.com',
+        password: 'secret-password',
+        role: 'admin',
+      })
+
+      expect(toasterMock).toHaveBeenCalledWith('New user "John Doe" created.')
+    })
+  })
+})

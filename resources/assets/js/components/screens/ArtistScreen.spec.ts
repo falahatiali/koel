@@ -1,41 +1,49 @@
 import { screen, waitFor } from '@testing-library/vue'
-import { expect, it } from 'vitest'
-import factory from '@/__tests__/factory'
-import UnitTestCase from '@/__tests__/UnitTestCase'
-import { artistStore, commonStore, songStore } from '@/stores'
-import { downloadService } from '@/services'
-import { eventBus } from '@/utils'
-import ArtistScreen from './ArtistScreen.vue'
+import type { Mock } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
+import { createHarness } from '@/__tests__/TestHarness'
+import { artistStore } from '@/stores/artistStore'
+import { commonStore } from '@/stores/commonStore'
+import { playableStore } from '@/stores/playableStore'
+import { eventBus } from '@/utils/eventBus'
+import { acl } from '@/services/acl'
+import Router from '@/router'
+import { useContextMenu } from '@/composables/useContextMenu'
+import { assertOpenContextMenu } from '@/__tests__/assertions'
+import ArtistContextMenu from '@/components/artist/ArtistContextMenu.vue'
+import Component from './ArtistScreen.vue'
 
-let artist: Artist
+describe('artistScreen.vue', () => {
+  const h = createHarness({
+    beforeEach: () => {
+      h.mock(acl, 'checkResourcePermission').mockResolvedValue(true)
+    },
+  })
 
-new class extends UnitTestCase {
-  protected async renderComponent () {
-    commonStore.state.use_last_fm = true
+  const renderComponent = async (
+    tab: 'songs' | 'albums' | 'information' | 'events' = 'songs',
+    artist?: Artist,
+  ) => {
+    commonStore.state.uses_last_fm = true
 
-    artist = factory<Artist>('artist', {
-      id: 42,
+    artist = artist || h.factory('artist', {
       name: 'Led Zeppelin',
     })
 
-    const resolveArtistMock = this.mock(artistStore, 'resolve').mockResolvedValue(artist)
+    const resolveArtistMock = h.mock(artistStore, 'resolve').mockResolvedValue(artist)
 
-    const songs = factory<Song>('song', 13)
-    const fetchSongsMock = this.mock(songStore, 'fetchForArtist').mockResolvedValue(songs)
+    const songs = h.factory('song', 13)
+    const fetchSongsMock = h.mock(playableStore, 'fetchSongsForArtist').mockResolvedValue(songs)
 
-    await this.router.activateRoute({
-      path: 'artists/42',
-      screen: 'Artist'
-    }, { id: '42' })
-
-    this.render(ArtistScreen, {
+    const rendered = h.visit(`artists/${artist.id}/${tab}`).render(Component, {
       global: {
         stubs: {
-          ArtistInfo: this.stub('artist-info'),
-          SongList: this.stub('song-list'),
-          AlbumCard: this.stub('album-card')
-        }
-      }
+          ArtistInfo: h.stub('artist-info'),
+          SongList: h.stub('song-list'),
+          AlbumCard: h.stub('album-card'),
+          ArtistEventList: h.stub('artist-event-list'),
+        },
+      },
     })
 
     await waitFor(() => {
@@ -43,35 +51,75 @@ new class extends UnitTestCase {
       expect(fetchSongsMock).toHaveBeenCalledWith(artist.id)
     })
 
-    await this.tick(2)
+    return {
+      ...rendered,
+      artist,
+      songs,
+      resolveArtistMock,
+      fetchSongsMock,
+    }
   }
 
-  protected test () {
-    it('downloads', async () => {
-      const downloadMock = this.mock(downloadService, 'fromArtist')
-      await this.renderComponent()
+  it('goes back to list if artist is deleted', async () => {
+    const goMock = h.mock(Router, 'go')
+    const { artist } = await renderComponent()
+    await h.tick()
 
-      await this.user.click(screen.getByRole('button', { name: 'Download All' }))
-
-      expect(downloadMock).toHaveBeenCalledWith(artist)
+    eventBus.emit('SONGS_UPDATED', {
+      songs: [],
+      artists: [],
+      albums: [],
+      removed: {
+        album_ids: [],
+        artist_ids: [artist.id, 'foo'],
+      },
     })
 
-    it('goes back to list if artist is deleted', async () => {
-      const goMock = this.mock(this.router, 'go')
-      const byIdMock = this.mock(artistStore, 'byId', null)
-      await this.renderComponent()
+    await waitFor(() => expect(goMock).toHaveBeenCalledWith('/#/artists'))
+  })
 
-      eventBus.emit('SONGS_UPDATED')
+  it('shows the playable list', async () => {
+    await renderComponent()
+    await waitFor(() => screen.getByTestId('song-list'))
+  })
 
-      await waitFor(() => {
-        expect(byIdMock).toHaveBeenCalledWith(artist.id)
-        expect(goMock).toHaveBeenCalledWith('artists')
-      })
+  it('has an Events tab if using Ticketmaster', async () => {
+    commonStore.state.uses_ticketmaster = true
+    await renderComponent()
+
+    await waitFor(() => screen.getByRole('link', { name: 'Events' }))
+  })
+
+  it('does not have an Events tab if not using Ticketmaster', async () => {
+    commonStore.state.uses_ticketmaster = false
+    await renderComponent()
+
+    await waitFor(() => expect(screen.queryByRole('link', { name: 'Events' })).toBeNull())
+  })
+
+  it('has a Favorite button if artist is favorite', async () => {
+    const { artist } = await renderComponent('songs', h.factory('artist', { favorite: true }))
+    const favoriteMock = h.mock(artistStore, 'toggleFavorite')
+
+    await waitFor(async () => {
+      await h.user.click(screen.getByRole('button', { name: 'Undo Favorite' }))
+      expect(favoriteMock).toHaveBeenCalledWith(artist)
     })
+  })
 
-    it('shows the song list', async () => {
-      await this.renderComponent()
-      screen.getByTestId('song-list')
+  it('does not have a Favorite button if artist is not favorite', async () => {
+    await renderComponent('songs', h.factory('artist', { favorite: false }))
+    expect(screen.queryByRole('button', { name: 'Favorite' })).toBeNull()
+  })
+
+  it('requests Actions menu', async () => {
+    vi.mock('@/composables/useContextMenu')
+    const { openContextMenu } = useContextMenu()
+    const { artist } = await renderComponent()
+
+    await waitFor(async () => {
+      await h.user.click(screen.getByRole('button', { name: 'More Actions' }))
+      await assertOpenContextMenu(openContextMenu as Mock, ArtistContextMenu, { artist })
     })
-  }
-}
+  })
+})

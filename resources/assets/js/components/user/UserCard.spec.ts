@@ -1,93 +1,46 @@
-import { expect, it } from 'vitest'
-import factory from '@/__tests__/factory'
-import UnitTestCase from '@/__tests__/UnitTestCase'
+import type { Mock } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { screen } from '@testing-library/vue'
-import { eventBus } from '@/utils'
-import { userStore } from '@/stores'
-import { DialogBoxStub } from '@/__tests__/stubs'
-import UserCard from './UserCard.vue'
-import { invitationService } from '@/services'
+import { createHarness } from '@/__tests__/TestHarness'
+import { useContextMenu } from '@/composables/useContextMenu'
+import Component from './UserCard.vue'
+import { assertOpenContextMenu } from '@/__tests__/assertions'
+import UserContextMenu from '@/components/user/UserContextMenu.vue'
 
-new class extends UnitTestCase {
-  private renderComponent (user: User) {
-    return this.render(UserCard, {
+describe('userCard.vue', () => {
+  const h = createHarness()
+
+  const renderComponent = (user?: User) => {
+    user = user ?? h.factory('user')
+
+    const rendered = h.render(Component, {
       props: {
-        user
-      }
+        user,
+      },
     })
+
+    return {
+      ...rendered,
+      user,
+    }
   }
 
-  protected test () {
-    it('has different behaviors for current user', () => {
-      const user = factory<User>('user')
-      this.actingAs(user).renderComponent(user)
+  it('has different behaviors for current user', () => {
+    const user = h.factory.states('current')('user') as CurrentUser
+    h.actingAsUser(user)
+    renderComponent(user)
 
-      screen.getByTitle('This is you!')
-      screen.getByText('Your Profile')
-    })
+    screen.getByTitle('This is you!')
+    expect(screen.getByText('Your Profile').getAttribute('href')).toBe('/#/profile')
+    expect(screen.queryByRole('button', { name: 'More Actions' })).toBeNull()
+  })
 
-    it('edits user', async () => {
-      const user = factory<User>('user')
-      const emitMock = this.mock(eventBus, 'emit')
-      this.renderComponent(user)
+  it('requests the context menu', async () => {
+    vi.mock('@/composables/useContextMenu')
+    const { openContextMenu } = useContextMenu()
+    const { user } = renderComponent()
 
-      await this.user.click(screen.getByRole('button', { name: 'Edit' }))
-
-      expect(emitMock).toHaveBeenCalledWith('MODAL_SHOW_EDIT_USER_FORM', user)
-    })
-
-    it('redirects to Profile screen if edit current user', async () => {
-      const mock = this.mock(this.router, 'go')
-      const user = factory<User>('user')
-      this.actingAs(user).renderComponent(user)
-
-      await this.user.click(screen.getByRole('button', { name: 'Your Profile' }))
-
-      expect(mock).toHaveBeenCalledWith('profile')
-    })
-
-    it('deletes user if confirmed', async () => {
-      this.mock(DialogBoxStub.value, 'confirm').mockResolvedValue(true)
-      const user = factory<User>('user')
-      this.actingAsAdmin().renderComponent(user)
-      const destroyMock = this.mock(userStore, 'destroy')
-
-      await this.user.click(screen.getByRole('button', { name: 'Delete' }))
-
-      expect(destroyMock).toHaveBeenCalledWith(user)
-    })
-
-    it('does not delete user if not confirmed', async () => {
-      this.mock(DialogBoxStub.value, 'confirm').mockResolvedValue(false)
-      const user = factory<User>('user')
-      this.actingAsAdmin().renderComponent(user)
-      const destroyMock = this.mock(userStore, 'destroy')
-
-      await this.user.click(screen.getByRole('button', { name: 'Delete' }))
-
-      expect(destroyMock).not.toHaveBeenCalled()
-    })
-
-    it('revokes invite for prospects', async () => {
-      this.mock(DialogBoxStub.value, 'confirm').mockResolvedValue(true)
-      const prospect = factory.states('prospect')<User>('user')
-      this.actingAsAdmin().renderComponent(prospect)
-      const revokeMock = this.mock(invitationService, 'revoke')
-
-      await this.user.click(screen.getByRole('button', { name: 'Revoke' }))
-
-      expect (revokeMock).toHaveBeenCalledWith(prospect)
-    })
-
-    it('does not revoke invite for prospects if not confirmed', async () => {
-      this.mock(DialogBoxStub.value, 'confirm').mockResolvedValue(false)
-      const prospect = factory.states('prospect')<User>('user')
-      this.actingAsAdmin().renderComponent(prospect)
-      const revokeMock = this.mock(invitationService, 'revoke')
-
-      await this.user.click(screen.getByRole('button', { name: 'Revoke' }))
-
-      expect(revokeMock).not.toHaveBeenCalled()
-    })
-  }
-}
+    await h.user.click(screen.getByRole('button', { name: 'More Actions' }))
+    await assertOpenContextMenu(openContextMenu as Mock, UserContextMenu, { user })
+  })
+})

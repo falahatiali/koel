@@ -1,106 +1,76 @@
 <template>
-  <form @submit.prevent="submit" @keydown.esc="maybeClose">
+  <form @submit.prevent="handleSubmit" @keydown.esc="maybeClose">
     <header>
       <h1>Add New User</h1>
     </header>
 
-    <main>
-      <div class="form-row">
-        <label>
-          Name
-          <input v-model="newUser.name" v-koel-focus name="name" required title="Name" type="text">
-        </label>
-      </div>
-      <div class="form-row">
-        <label>
-          Email
-          <input v-model="newUser.email" name="email" required title="Email" type="email">
-        </label>
-      </div>
-      <div class="form-row">
-        <label>
-          Password
-          <input
-            v-model="newUser.password"
-            autocomplete="new-password"
-            name="password"
-            required
-            title="Password"
-            type="password"
-          >
-        </label>
-        <p class="help">Min. 10 characters. Should be a mix of characters, numbers, and symbols.</p>
-      </div>
-      <div class="form-row">
-        <label>
-          <CheckBox v-model="newUser.is_admin" name="is_admin" />
-          User is an admin
-          <TooltipIcon title="Admins can perform administrative tasks like managing users and uploading songs." />
-        </label>
-      </div>
+    <main class="space-y-5">
+      <FormRow>
+        <template #label>Name</template>
+        <TextInput v-model="data.name" v-koel-focus name="name" required />
+      </FormRow>
+      <FormRow>
+        <template #label>Email</template>
+        <TextInput v-model="data.email" name="email" required type="email" />
+      </FormRow>
+      <FormRow>
+        <template #label>Password</template>
+        <TextInput
+          v-model="data.password"
+          autocomplete="new-password"
+          name="password"
+          required
+          title="Password"
+          type="password"
+        />
+        <template #help>Min. 10 characters. Should be a mix of characters, numbers, and symbols.</template>
+      </FormRow>
+      <RolePicker v-model="data.role" />
     </main>
 
     <footer>
-      <Btn class="btn-add" type="submit">Save</Btn>
-      <Btn class="btn-cancel" white @click.prevent="maybeClose">Cancel</Btn>
+      <Btn :disabled="loading" class="btn-add" type="submit">Save</Btn>
+      <Btn :disabled="loading" class="btn-cancel" white @click.prevent="maybeClose">Cancel</Btn>
     </footer>
   </form>
 </template>
 
 <script lang="ts" setup>
-import { isEqual } from 'lodash'
-import { reactive } from 'vue'
-import { CreateUserData, userStore } from '@/stores'
-import { parseValidationError } from '@/utils'
-import { useDialogBox, useMessageToaster, useOverlay } from '@/composables'
+import type { CreateUserData } from '@/stores/userStore'
+import { userStore } from '@/stores/userStore'
+import { useDialogBox } from '@/composables/useDialogBox'
+import { useMessageToaster } from '@/composables/useMessageToaster'
+import { useForm } from '@/composables/useForm'
 
-import Btn from '@/components/ui/Btn.vue'
-import TooltipIcon from '@/components/ui/TooltipIcon.vue'
-import CheckBox from '@/components/ui/CheckBox.vue'
-
-const { showOverlay, hideOverlay } = useOverlay()
-const { toastSuccess } = useMessageToaster()
-const { showErrorDialog, showConfirmDialog } = useDialogBox()
-
-const emptyUserData: CreateUserData = {
-  name: '',
-  email: '',
-  password: '',
-  is_admin: false
-}
-
-const newUser = reactive<CreateUserData>(Object.assign({}, emptyUserData))
-
-const submit = async () => {
-  showOverlay()
-
-  try {
-    await userStore.store(newUser)
-    toastSuccess(`New user "${newUser.name}" created.`)
-    close()
-  } catch (err: any) {
-    const msg = err.response.status === 422 ? parseValidationError(err.response.data)[0] : 'Unknown error.'
-    showErrorDialog(msg, 'Error')
-  } finally {
-    hideOverlay()
-  }
-}
+import Btn from '@/components/ui/form/Btn.vue'
+import TextInput from '@/components/ui/form/TextInput.vue'
+import FormRow from '@/components/ui/form/FormRow.vue'
+import RolePicker from '@/components/user/RolePicker.vue'
 
 const emit = defineEmits<{ (e: 'close'): void }>()
+
+const { toastSuccess } = useMessageToaster()
+const { showConfirmDialog } = useDialogBox()
+
 const close = () => emit('close')
 
-const maybeClose = async () => {
-  if (isEqual(newUser, emptyUserData)) {
+const { data, isPristine, loading, handleSubmit } = useForm<CreateUserData>({
+  initialValues: {
+    name: '',
+    email: '',
+    password: '',
+    role: 'user',
+  },
+  onSubmit: async data => await userStore.store(data),
+  onSuccess: (user: User) => {
+    toastSuccess(`New user "${user.name}" created.`)
     close()
-    return
-  }
+  },
+})
 
-  await showConfirmDialog('Discard all changes?') && close()
+const maybeClose = async () => {
+  if (isPristine() || await showConfirmDialog('Discard all changes?')) {
+    close()
+  }
 }
 </script>
-
-<style lang="scss" scoped>
-.help {
-  margin-top: .75rem;
-}
-</style>

@@ -1,14 +1,17 @@
-import { arrow, autoUpdate, offset, Placement } from '@floating-ui/dom'
-import { Directive, DirectiveBinding } from 'vue'
-import { updateFloatingUi } from '@/utils'
+import type { Placement } from '@floating-ui/dom'
+import { arrow, autoUpdate, offset } from '@floating-ui/dom'
+import type { Directive, DirectiveBinding } from 'vue'
+import { updateFloatingUi } from '@/utils/floatingUi'
 
 type ElementWithTooltip = HTMLElement & {
-  $tooltip?: HTMLDivElement,
+  $tooltip?: HTMLDivElement
   $cleanup?: Closure
 }
 
 const getOrCreateTooltip = (el: ElementWithTooltip): HTMLElement => {
-  if (el.$tooltip) return el.$tooltip
+  if (el.$tooltip) {
+    return el.$tooltip
+  }
 
   el.$tooltip = document.createElement('div')
   el.$tooltip.classList.add('tooltip')
@@ -31,10 +34,10 @@ const init = (el: ElementWithTooltip, binding: DirectiveBinding) => {
   const $tooltip = getOrCreateTooltip(el)
 
   // make sure the actual title is removed from the element, but keep a backup for the updated() hook calls
-  $tooltip.querySelector<HTMLDivElement>('.tooltip-content')!.innerText = binding.value
+  $tooltip.querySelector<HTMLDivElement>('.tooltip-content')!.textContent = binding.value
     || el.title
     || el.getAttribute('data-title')
-    || el.innerText
+    || el.textContent
 
   if (el.title && !el.getAttribute('data-title')) {
     el.setAttribute('data-title', el.title)
@@ -43,7 +46,7 @@ const init = (el: ElementWithTooltip, binding: DirectiveBinding) => {
 
   const $arrow = $tooltip.querySelector<HTMLDivElement>('.tooltip-arrow')!
 
-  let placement: Placement = 'bottom'
+  let placement: Placement = 'top'
 
   ;(['left', 'right', 'top', 'bottom'] as Placement[]).forEach(p => {
     if (binding.modifiers[p]) {
@@ -55,8 +58,8 @@ const init = (el: ElementWithTooltip, binding: DirectiveBinding) => {
     placement,
     middleware: [
       arrow({ element: $arrow }),
-      offset(8)
-    ]
+      offset(8),
+    ],
   }, $arrow)
 
   el.$cleanup = el.$cleanup || autoUpdate(el, $tooltip, update)
@@ -78,8 +81,8 @@ export const tooltip: Directive = {
   mounted: init,
   updated: init,
 
-  beforeUnmount: (el: ElementWithTooltip, binding) => {
+  beforeUnmount: (el: ElementWithTooltip) => {
     el.$cleanup && el.$cleanup()
     el.$tooltip && document.body.removeChild(el.$tooltip)
-  }
+  },
 }

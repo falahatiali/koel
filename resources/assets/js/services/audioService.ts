@@ -1,21 +1,22 @@
-import { equalizerStore } from '@/stores'
-import { frequencies } from '@/config'
-import { dbToGain } from '@/utils'
+import { equalizerStore } from '@/stores/equalizerStore'
+import { frequencies } from '@/config/audio'
 
-interface Band {
+export const dbToGain = (db: number) => 10 ** (db / 20) || 0
+
+export interface Band {
   label: string
-  filter: BiquadFilterNode
+  node: BiquadFilterNode
   db: number
 }
 
 export const audioService = {
   unlocked: false,
 
-  context: null as unknown as AudioContext,
-  source: null as unknown as MediaElementAudioSourceNode,
-  element: null as unknown as HTMLMediaElement,
-  preampGainNode: null as unknown as GainNode,
-  analyzer: null as unknown as AnalyserNode,
+  context: null! as AudioContext,
+  source: null! as MediaElementAudioSourceNode,
+  element: null! as HTMLMediaElement,
+  preampGainNode: null! as GainNode,
+  analyzer: null! as AnalyserNode,
 
   bands: [] as Band[],
 
@@ -55,9 +56,9 @@ export const audioService = {
       prevFilter = filter
 
       this.bands.push({
-        filter,
+        node: filter,
         label: String(frequency).replace('000', 'K'),
-        db: config.gains[i]
+        db: config.gains[i],
       })
     })
 
@@ -74,7 +75,6 @@ export const audioService = {
   },
 
   changeFilterGain (node: BiquadFilterNode, db: number) {
-    this.bands.find(band => band.filter === node)!.db = db
     node.gain.value = dbToGain(db)
   },
 
@@ -85,7 +85,9 @@ export const audioService = {
   unlockAudioContext () {
     ['touchend', 'touchstart', 'click'].forEach(event => {
       document.addEventListener(event, () => {
-        if (this.unlocked) return
+        if (this.unlocked) {
+          return
+        }
 
         const source = this.context.createBufferSource()
         source.buffer = this.context.createBuffer(1, 1, 22050)
@@ -94,8 +96,8 @@ export const audioService = {
 
         this.unlocked = true
       }, {
-        once: true
+        once: true,
       })
     })
-  }
+  },
 }

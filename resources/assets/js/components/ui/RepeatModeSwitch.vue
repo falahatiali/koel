@@ -1,53 +1,37 @@
 <template>
   <button
-    v-koel-tooltip.top
+    v-koel-tooltip
     :class="{ active: mode !== 'NO_REPEAT' }"
     :title="`Change repeat mode (current: ${readableMode})`"
+    class="opacity-30"
     data-testid="repeat-mode-switch"
     type="button"
     @click.prevent="changeMode"
   >
-    <FontAwesomeLayers>
-      <Icon :icon="faRepeat" />
-      <FontAwesomeLayersText v-if="mode === 'REPEAT_ONE'" counter value="1" />
-    </FontAwesomeLayers>
+    <Repeat1 v-if="mode === 'REPEAT_ONE'" :size="16" />
+    <Repeat v-else :size="16" />
   </button>
 </template>
 
 <script lang="ts" setup>
-import { FontAwesomeLayers, FontAwesomeLayersText } from '@fortawesome/vue-fontawesome'
-import { faRepeat } from '@fortawesome/free-solid-svg-icons'
+import { Repeat, Repeat1 } from 'lucide-vue-next'
 import { computed, toRef } from 'vue'
-import { playbackService } from '@/services'
-import { preferenceStore } from '@/stores'
+import { preferenceStore } from '@/stores/preferenceStore'
+import { playback } from '@/services/playbackManager'
 
-const mode = toRef(preferenceStore.state, 'repeatMode')
+const mode = toRef(preferenceStore.state, 'repeat_mode')
 
 const readableMode = computed(() => mode.value
   .split('_')
   .map(part => part[0].toUpperCase() + part.substring(1).toLowerCase())
-  .join(' ')
+  .join(' '),
 )
 
-const changeMode = () => playbackService.changeRepeatMode()
+const changeMode = () => playback().rotateRepeatMode()
 </script>
 
-<style lang="scss" scoped>
-.fa-layers-counter {
-  transform: none;
-  font-size: .45rem;
-  font-weight: bold;
-  right: 2px;
-  top: 2px;
-  color: currentColor;
-  background: transparent;
-}
-
-button {
-  opacity: .3;
-}
-
+<style lang="postcss" scoped>
 .active {
-  opacity: 1;
+  @apply opacity-70;
 }
 </style>

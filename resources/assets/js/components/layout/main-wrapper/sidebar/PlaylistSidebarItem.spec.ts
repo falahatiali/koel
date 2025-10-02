@@ -1,43 +1,53 @@
-import { expect, it } from 'vitest'
+import type { Mock } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { fireEvent, screen } from '@testing-library/vue'
-import { eventBus } from '@/utils'
-import factory from '@/__tests__/factory'
-import UnitTestCase from '@/__tests__/UnitTestCase'
-import PlaylistSidebarItem from './PlaylistSidebarItem.vue'
+import { createHarness } from '@/__tests__/TestHarness'
+import { useContextMenu } from '@/composables/useContextMenu'
+import { assertOpenContextMenu } from '@/__tests__/assertions'
+import Component from './PlaylistSidebarItem.vue'
+import PlaylistContextMenu from '@/components/playlist/PlaylistContextMenu.vue'
 
-new class extends UnitTestCase {
-  renderComponent (list: PlaylistLike) {
-    this.render(PlaylistSidebarItem, {
+vi.mock('@/composables/useContextMenu')
+
+describe('playlistSidebarItem.vue', () => {
+  const h = createHarness()
+
+  const renderComponent = (list?: PlaylistLike) => {
+    list = list ?? h.factory('playlist')
+
+    const rendered = h.render(Component, {
       props: {
-        list
-      }
+        list,
+      },
     })
+
+    return {
+      ...rendered,
+      list,
+    }
   }
 
-  protected test () {
-    it('requests context menu if is playlist', async () => {
-      const emitMock = this.mock(eventBus, 'emit')
-      const playlist = factory<Playlist>('playlist')
-      this.renderComponent(playlist)
+  it('requests context menu if is playlist', async () => {
+    const { openContextMenu } = useContextMenu()
+    const { list } = renderComponent()
 
-      await fireEvent.contextMenu(screen.getByRole('listitem'))
+    await fireEvent.contextMenu(screen.getByRole('listitem'))
+    await assertOpenContextMenu(openContextMenu as Mock, PlaylistContextMenu, { playlist: list })
+  })
 
-      expect(emitMock).toHaveBeenCalledWith('PLAYLIST_CONTEXT_MENU_REQUESTED', expect.anything(), playlist)
-    })
+  it.each<FavoriteList['name'] | RecentlyPlayedList['name']>(['Favorites', 'Recently Played'])
+  ('does not request context menu if not playlist', async name => { // eslint-disable-line no-unexpected-multiline
+    const { openContextMenu } = useContextMenu()
+    ;(openContextMenu as Mock).mockClear()
+    const list: FavoriteList | RecentlyPlayedList = {
+      name,
+      playables: [],
+    }
 
-    it.each<FavoriteList['name'] | RecentlyPlayedList['name']>(['Favorites', 'Recently Played'])
-    ('does not request context menu if not playlist', async (name) => {
-      const list: FavoriteList | RecentlyPlayedList = {
-        name,
-        songs: []
-      }
+    renderComponent(list)
 
-      const emitMock = this.mock(eventBus, 'emit')
-      this.renderComponent(list)
+    await fireEvent.contextMenu(screen.getByRole('listitem'))
 
-      await fireEvent.contextMenu(screen.getByRole('listitem'))
-
-      expect(emitMock).not.toHaveBeenCalledWith('PLAYLIST_CONTEXT_MENU_REQUESTED', list)
-    })
-  }
-}
+    expect(openContextMenu).not.toHaveBeenCalled()
+  })
+})

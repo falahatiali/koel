@@ -3,39 +3,52 @@
 namespace Tests\Feature;
 
 use App\Models\Setting;
-use App\Models\User;
-use App\Services\MediaSyncService;
-use App\Values\SyncResultCollection;
+use App\Services\Scanners\DirectoryScanner;
+use App\Values\Scanning\ScanResultCollection;
 use Mockery\MockInterface;
+use PHPUnit\Framework\Attributes\Test;
+use Tests\TestCase;
+
+use function Tests\create_admin;
 
 class SettingTest extends TestCase
 {
-    private MediaSyncService|MockInterface $mediaSyncService;
+    private DirectoryScanner|MockInterface $mediaScanner;
 
     public function setUp(): void
     {
         parent::setUp();
 
-        $this->mediaSyncService = self::mock(MediaSyncService::class);
+        $this->mediaScanner = $this->mock(DirectoryScanner::class);
     }
 
-    public function testSaveSettings(): void
+    #[Test]
+    public function saveSettings(): void
     {
-        /** @var User $admin */
-        $admin = User::factory()->admin()->create();
+        $this->mediaScanner->expects('scan')
+            ->andReturn(ScanResultCollection::create());
 
-        $this->mediaSyncService->shouldReceive('sync')->once()
-            ->andReturn(SyncResultCollection::create());
-
-        $this->putAs('/api/settings', ['media_path' => __DIR__], $admin)
+        $this->putAs('/api/settings', ['media_path' => __DIR__], create_admin())
             ->assertSuccessful();
 
         self::assertSame(__DIR__, Setting::get('media_path'));
     }
 
-    public function testNonAdminCannotSaveSettings(): void
+    #[Test]
+    public function nonAdminCannotSaveSettings(): void
     {
         $this->putAs('/api/settings', ['media_path' => __DIR__])
             ->assertForbidden();
+    }
+
+    #[Test]
+    public function mediaPathCannotBeSetForCloudStorage(): void
+    {
+        config(['koel.storage_driver' => 's3']);
+
+        $this->putAs('/api/settings', ['media_path' => __DIR__], create_admin())
+            ->assertUnprocessable();
+
+        config(['koel.storage_driver' => 'local']);
     }
 }

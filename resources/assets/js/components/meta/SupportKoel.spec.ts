@@ -1,53 +1,55 @@
-import { expect, it, vi } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { screen } from '@testing-library/vue'
-import { preferenceStore } from '@/stores'
-import UnitTestCase from '@/__tests__/UnitTestCase'
-import SupportKoel from './SupportKoel.vue'
+import { createHarness } from '@/__tests__/TestHarness'
+import { preferenceStore } from '@/stores/preferenceStore'
+import Component from './SupportKoel.vue'
 
-new class extends UnitTestCase {
-  protected beforeEach () {
-    super.beforeEach(() => vi.useFakeTimers())
-  }
-
-  protected afterEach () {
-    super.afterEach(() => {
+describe('supportKoel.vue', () => {
+  const h = createHarness({
+    beforeEach: () => vi.useFakeTimers(),
+    afterEach: () => {
       vi.useRealTimers()
-      preferenceStore.state.supportBarNoBugging = false
-    })
-  }
+      preferenceStore.state.support_bar_no_bugging = false
+    },
+    authenticated: false, // we want to trigger preferenceStore.initialized manually
+  })
 
-  private async renderComponent () {
+  const renderComponent = async () => {
     preferenceStore.initialized.value = true
-    const rendered = this.render(SupportKoel)
+    const rendered = h.render(Component)
 
     vi.advanceTimersByTime(30 * 60 * 1000)
-    await this.tick()
+    await h.tick()
 
     return rendered
   }
 
-  protected test () {
-    it('shows after a delay', async () => expect((await this.renderComponent()).html()).toMatchSnapshot())
+  it('shows after a delay', async () => expect((await renderComponent()).html()).toMatchSnapshot())
 
-    it('does not show if user so demands', async () => {
-      preferenceStore.state.supportBarNoBugging = true
-      preferenceStore.initialized.value = true
-      expect((await this.renderComponent()).queryByTestId('support-bar')).toBeNull()
+  it('does not show if user so demands', async () => {
+    preferenceStore.state.support_bar_no_bugging = true
+    preferenceStore.initialized.value = true
+    expect((await renderComponent()).queryByTestId('support-bar')).toBeNull()
+  })
+
+  it('does not show for Plus edition', async () => {
+    await h.withPlusEdition(async () => {
+      expect((await renderComponent()).queryByTestId('support-bar')).toBeNull()
     })
+  })
 
-    it('hides', async () => {
-      await this.renderComponent()
-      await this.user.click(screen.getByRole('button', { name: 'Hide' }))
+  it('hides', async () => {
+    await renderComponent()
+    await h.user.click(screen.getByRole('button', { name: 'Hide' }))
 
-      expect(screen.queryByTestId('support-bar')).toBeNull()
-    })
+    expect(screen.queryByTestId('support-bar')).toBeNull()
+  })
 
-    it('hides and does not bug again', async () => {
-      await this.renderComponent()
-      await this.user.click(screen.getByRole('button', { name: 'Don\'t bug me again' }))
+  it('hides and does not bug again', async () => {
+    await renderComponent()
+    await h.user.click(screen.getByRole('button', { name: 'Don\'t bug me again' }))
 
-      expect(await screen.queryByTestId('support-bar')).toBeNull()
-      expect(preferenceStore.state.supportBarNoBugging).toBe(true)
-    })
-  }
-}
+    expect(screen.queryByTestId('support-bar')).toBeNull()
+    expect(preferenceStore.state.support_bar_no_bugging).toBe(true)
+  })
+})

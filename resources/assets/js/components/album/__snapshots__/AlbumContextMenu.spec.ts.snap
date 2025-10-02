@@ -1,15 +1,30 @@
-// Vitest Snapshot v1
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
 
-exports[`renders 1`] = `
-<nav data-v-0408531a="" class="album-menu menu context-menu" style="top: 42px; left: 420px;" tabindex="0" data-testid="album-context-menu">
-  <ul data-v-0408531a="">
-    <li>Play All</li>
-    <li>Shuffle All</li>
-    <li class="separator"></li>
-    <li>Go to Album</li>
-    <li>Go to Artist</li>
-    <li class="separator"></li>
-    <li>Download</li>
-  </ul>
-</nav>
+exports[`albumContextMenu.vue > renders 1`] = `
+<ul>
+  <li class="">
+    <!--v-if-->Play All
+    <!--v-if-->
+  </li>
+  <li class="">
+    <!--v-if-->Shuffle All
+    <!--v-if-->
+  </li>
+  <li class="separator"></li>
+  <li class="">
+    <!--v-if-->Favorite
+    <!--v-if-->
+  </li>
+  <!--v-if-->
+  <li class="separator"></li>
+  <li class="">
+    <!--v-if-->Download
+    <!--v-if-->
+  </li>
+  <li class="separator"></li>
+  <li class="">
+    <!--v-if-->Embed…
+    <!--v-if-->
+  </li>
+</ul>
 `;

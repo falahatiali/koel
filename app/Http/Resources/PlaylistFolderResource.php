@@ -7,16 +7,24 @@ use Illuminate\Http\Resources\Json\JsonResource;
 
 class PlaylistFolderResource extends JsonResource
 {
-    public function __construct(private PlaylistFolder $folder)
+    public const JSON_STRUCTURE = [
+        'type',
+        'id',
+        'name',
+        'user_id',
+        'created_at',
+    ];
+
+    public function __construct(private readonly PlaylistFolder $folder)
     {
         parent::__construct($folder);
     }
 
-    /** @return array<mixed> */
+    /** @inheritdoc */
     public function toArray($request): array
     {
         return [
-            'type' => 'playlist_folders',
+            'type' => 'playlist-folders',
             'id' => $this->folder->id,
             'name' => $this->folder->name,
             'user_id' => $this->folder->user_id,

@@ -15,7 +15,7 @@ the [Official Documentation](https://docs.koel.dev).
 
 ## Development
 
-See the [Development Guide](https://docs.koel.dev/#local-development).
+See the [Development Guide](https://docs.koel.dev/development).
 
 ## Koel Player
 
@@ -25,7 +25,13 @@ See the [Development Guide](https://docs.koel.dev/#local-development).
 without the limitations of the mobile web version. For more information on the project,
 visit [its repository](https://github.com/koel/player).
 
-## Backers
+## Sponsors and Backers
+
+[<img style="margin-right: 5px" src="./.github/assets/sponsors/whatthediff.svg" height="32" alt="What The Diff logo" title="What The Diff — AI assistant for your pull requests">](https://whatthediff.ai/)
+[<img style="margin-right: 5px" src="./.github/assets/sponsors/do.svg" height="32" alt="DigitalOcean logo" title="DigitalOcean">](https://www.digitalocean.com)
+[<img style="margin-right: 5px" src="./.github/assets/sponsors/ray.svg" height="32" alt="Ray logo" title="Understand and fix bugs faster using Ray">](https://myray.app/)
+[<img style="margin-right: 5px" src="./.github/assets/sponsors/follower-boerse.svg" height="32" alt="Follower Börse logo" title="TikTok Views Kaufen">](https://follower-boerse.de/produkt/tiktok-views-kaufen/)
+[<img style="margin-right: 5px" src="./.github/assets/sponsors/followhero.webp" height="32" alt="Twitter Follower">](https://followhero.de/twitter-follower-kaufen/)
 
 [Support me on OpenCollective](https://opencollective.com/koel#backer) with a monthly donation and help me continue
 building Koel.
@@ -41,35 +47,14 @@ building Koel.
 <a href="https://opencollective.com/koel/backer/8/website" target="_blank"><img src="https://opencollective.com/koel/backer/8/avatar.svg"></a>
 <a href="https://opencollective.com/koel/backer/9/website" target="_blank"><img src="https://opencollective.com/koel/backer/9/avatar.svg"></a>
 <a href="https://opencollective.com/koel/backer/10/website" target="_blank"><img src="https://opencollective.com/koel/backer/10/avatar.svg"></a>
-<a href="https://opencollective.com/koel/backer/11/website" target="_blank"><img src="https://opencollective.com/koel/backer/11/avatar.svg"></a>
-<a href="https://opencollective.com/koel/backer/12/website" target="_blank"><img src="https://opencollective.com/koel/backer/12/avatar.svg"></a>
-<a href="https://opencollective.com/koel/backer/13/website" target="_blank"><img src="https://opencollective.com/koel/backer/13/avatar.svg"></a>
-<a href="https://opencollective.com/koel/backer/14/website" target="_blank"><img src="https://opencollective.com/koel/backer/14/avatar.svg"></a>
-<a href="https://opencollective.com/koel/backer/15/website" target="_blank"><img src="https://opencollective.com/koel/backer/15/avatar.svg"></a>
-<a href="https://opencollective.com/koel/backer/16/website" target="_blank"><img src="https://opencollective.com/koel/backer/16/avatar.svg"></a>
-<a href="https://opencollective.com/koel/backer/17/website" target="_blank"><img src="https://opencollective.com/koel/backer/17/avatar.svg"></a>
-<a href="https://opencollective.com/koel/backer/18/website" target="_blank"><img src="https://opencollective.com/koel/backer/18/avatar.svg"></a>
-<a href="https://opencollective.com/koel/backer/19/website" target="_blank"><img src="https://opencollective.com/koel/backer/19/avatar.svg"></a>
-<a href="https://opencollective.com/koel/backer/20/website" target="_blank"><img src="https://opencollective.com/koel/backer/20/avatar.svg"></a>
-<a href="https://opencollective.com/koel/backer/21/website" target="_blank"><img src="https://opencollective.com/koel/backer/21/avatar.svg"></a>
-<a href="https://opencollective.com/koel/backer/22/website" target="_blank"><img src="https://opencollective.com/koel/backer/22/avatar.svg"></a>
-<a href="https://opencollective.com/koel/backer/23/website" target="_blank"><img src="https://opencollective.com/koel/backer/23/avatar.svg"></a>
-<a href="https://opencollective.com/koel/backer/24/website" target="_blank"><img src="https://opencollective.com/koel/backer/24/avatar.svg"></a>
-<a href="https://opencollective.com/koel/backer/25/website" target="_blank"><img src="https://opencollective.com/koel/backer/25/avatar.svg"></a>
-<a href="https://opencollective.com/koel/backer/26/website" target="_blank"><img src="https://opencollective.com/koel/backer/26/avatar.svg"></a>
-<a href="https://opencollective.com/koel/backer/27/website" target="_blank"><img src="https://opencollective.com/koel/backer/27/avatar.svg"></a>
-<a href="https://opencollective.com/koel/backer/28/website" target="_blank"><img src="https://opencollective.com/koel/backer/28/avatar.svg"></a>
-<a href="https://opencollective.com/koel/backer/29/website" target="_blank"><img src="https://opencollective.com/koel/backer/29/avatar.svg"></a>
 
-## Sponsors
-
-#### GitHub Sponsors
+### GitHub Sponsors
 
 * [You](https://github.com/users/phanan/sponsorship)?
 
-#### OpenCollective
+### OpenCollective
 
-[Become a sponsor on OpenCollective](https://opencollective.com/koel#sponsor) and get your logo on our README on Github
+[Become a sponsor on OpenCollective](https://opencollective.com/koel#sponsor) and get your logo on this README on Github
 with a link to your site.
 
 <a href="https://opencollective.com/koel/sponsor/0/website" target="_blank"><img src="https://opencollective.com/koel/sponsor/0/avatar.svg"></a>
@@ -83,22 +68,3 @@ with a link to your site.
 <a href="https://opencollective.com/koel/sponsor/8/website" target="_blank"><img src="https://opencollective.com/koel/sponsor/8/avatar.svg"></a>
 <a href="https://opencollective.com/koel/sponsor/9/website" target="_blank"><img src="https://opencollective.com/koel/sponsor/9/avatar.svg"></a>
 <a href="https://opencollective.com/koel/sponsor/10/website" target="_blank"><img src="https://opencollective.com/koel/sponsor/10/avatar.svg"></a>
-<a href="https://opencollective.com/koel/sponsor/11/website" target="_blank"><img src="https://opencollective.com/koel/sponsor/11/avatar.svg"></a>
-<a href="https://opencollective.com/koel/sponsor/12/website" target="_blank"><img src="https://opencollective.com/koel/sponsor/12/avatar.svg"></a>
-<a href="https://opencollective.com/koel/sponsor/13/website" target="_blank"><img src="https://opencollective.com/koel/sponsor/13/avatar.svg"></a>
-<a href="https://opencollective.com/koel/sponsor/14/website" target="_blank"><img src="https://opencollective.com/koel/sponsor/14/avatar.svg"></a>
-<a href="https://opencollective.com/koel/sponsor/15/website" target="_blank"><img src="https://opencollective.com/koel/sponsor/15/avatar.svg"></a>
-<a href="https://opencollective.com/koel/sponsor/16/website" target="_blank"><img src="https://opencollective.com/koel/sponsor/16/avatar.svg"></a>
-<a href="https://opencollective.com/koel/sponsor/17/website" target="_blank"><img src="https://opencollective.com/koel/sponsor/17/avatar.svg"></a>
-<a href="https://opencollective.com/koel/sponsor/18/website" target="_blank"><img src="https://opencollective.com/koel/sponsor/18/avatar.svg"></a>
-<a href="https://opencollective.com/koel/sponsor/19/website" target="_blank"><img src="https://opencollective.com/koel/sponsor/19/avatar.svg"></a>
-<a href="https://opencollective.com/koel/sponsor/20/website" target="_blank"><img src="https://opencollective.com/koel/sponsor/20/avatar.svg"></a>
-<a href="https://opencollective.com/koel/sponsor/21/website" target="_blank"><img src="https://opencollective.com/koel/sponsor/21/avatar.svg"></a>
-<a href="https://opencollective.com/koel/sponsor/22/website" target="_blank"><img src="https://opencollective.com/koel/sponsor/22/avatar.svg"></a>
-<a href="https://opencollective.com/koel/sponsor/23/website" target="_blank"><img src="https://opencollective.com/koel/sponsor/23/avatar.svg"></a>
-<a href="https://opencollective.com/koel/sponsor/24/website" target="_blank"><img src="https://opencollective.com/koel/sponsor/24/avatar.svg"></a>
-<a href="https://opencollective.com/koel/sponsor/25/website" target="_blank"><img src="https://opencollective.com/koel/sponsor/25/avatar.svg"></a>
-<a href="https://opencollective.com/koel/sponsor/26/website" target="_blank"><img src="https://opencollective.com/koel/sponsor/26/avatar.svg"></a>
-<a href="https://opencollective.com/koel/sponsor/27/website" target="_blank"><img src="https://opencollective.com/koel/sponsor/27/avatar.svg"></a>
-<a href="https://opencollective.com/koel/sponsor/28/website" target="_blank"><img src="https://opencollective.com/koel/sponsor/28/avatar.svg"></a>
-<a href="https://opencollective.com/koel/sponsor/29/website" target="_blank"><img src="https://opencollective.com/koel/sponsor/29/avatar.svg"></a>

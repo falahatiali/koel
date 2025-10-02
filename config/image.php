@@ -1,5 +1,8 @@
 <?php
 
+use Intervention\Image\Drivers\Gd\Driver as GdDriver;
+use Intervention\Image\Drivers\Imagick\Driver as ImagickDriver;
+
 return [
     /*
     |--------------------------------------------------------------------------
@@ -14,5 +17,7 @@ return [
     |
     */
 
-    'driver' => extension_loaded('imagick') ? 'imagick' : 'gd',
+    'driver' => extension_loaded('imagick')
+        ? ImagickDriver::class
+        : GdDriver::class,
 ];

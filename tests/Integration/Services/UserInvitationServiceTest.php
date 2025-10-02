@@ -2,14 +2,18 @@
 
 namespace Tests\Integration\Services;
 
+use App\Enums\Acl\Role;
 use App\Exceptions\InvitationNotFoundException;
 use App\Mail\UserInvite;
 use App\Models\User;
 use App\Services\UserInvitationService;
-use Hash;
+use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Str;
+use PHPUnit\Framework\Attributes\Test;
 use Tests\TestCase;
+
+use function Tests\create_admin;
 
 class UserInvitationServiceTest extends TestCase
 {
@@ -22,19 +26,18 @@ class UserInvitationServiceTest extends TestCase
         $this->service = app(UserInvitationService::class);
     }
 
-    public function testInvite(): void
+    #[Test]
+    public function invite(): void
     {
         Mail::fake();
 
         $emails = ['foo@bar.com', 'bar@baz.io'];
-
-        /** @var User $user */
-        $user = User::factory()->admin()->create();
+        $user = create_admin();
 
         $this->service
-            ->invite($emails, true, $user)
+            ->invite($emails, Role::ADMIN, $user)
             ->each(static function (User $prospect) use ($user): void {
-                self::assertTrue($prospect->is_admin);
+                self::assertSame(Role::ADMIN, $prospect->role);
                 self::assertTrue($prospect->invitedBy->is($user));
                 self::assertTrue($prospect->is_prospect);
                 self::assertNotNull($prospect->invitation_token);
@@ -45,12 +48,11 @@ class UserInvitationServiceTest extends TestCase
         Mail::assertQueued(UserInvite::class, 2);
     }
 
-    public function testGetUserProspectByToken(): void
+    #[Test]
+    public function getUserProspectByToken(): void
     {
         $token = Str::uuid()->toString();
-
-        /** @var User $user */
-        $user = User::factory()->admin()->create();
+        $user = create_admin();
 
         $prospect = User::factory()->for($user, 'invitedBy')->create([
             'invitation_token' => $token,
@@ -60,16 +62,17 @@ class UserInvitationServiceTest extends TestCase
         self::assertTrue($this->service->getUserProspectByToken($token)->is($prospect));
     }
 
-    public function testGetUserProspectByTokenThrowsIfTokenNotFound(): void
+    #[Test]
+    public function getUserProspectByTokenThrowsIfTokenNotFound(): void
     {
         $this->expectException(InvitationNotFoundException::class);
         $this->service->getUserProspectByToken(Str::uuid()->toString());
     }
 
-    public function testRevokeByEmail(): void
+    #[Test]
+    public function revokeByEmail(): void
     {
-        /** @var User $user */
-        $user = User::factory()->admin()->create();
+        $user = create_admin();
 
         /** @var User $prospect */
         $prospect = User::factory()->for($user, 'invitedBy')->create([
@@ -79,26 +82,21 @@ class UserInvitationServiceTest extends TestCase
 
         $this->service->revokeByEmail($prospect->email);
 
-        self::assertModelMissing($prospect);
+        $this->assertModelMissing($prospect);
     }
 
-    public function testAccept(): void
+    #[Test]
+    public function accept(): void
     {
-        $token = Str::uuid()->toString();
+        $admin = create_admin();
 
-        /** @var User $user */
-        $user = User::factory()->admin()->create();
+        /** @var User $prospect */
+        $prospect = User::factory()->for($admin, 'invitedBy')->admin()->prospect()->create();
 
-        User::factory()->for($user, 'invitedBy')->create([
-            'invitation_token' => $token,
-            'invited_at' => now(),
-            'is_admin' => true,
-        ]);
-
-        $user = $this->service->accept($token, 'Bruce Dickinson', 'SuperSecretPassword');
+        $user = $this->service->accept($prospect->invitation_token, 'Bruce Dickinson', 'SuperSecretPassword');
 
         self::assertFalse($user->is_prospect);
-        self::assertTrue($user->is_admin);
+        self::assertSame(Role::ADMIN, $user->role);
         self::assertNull($user->invitation_token);
         self::assertNotNull($user->invitation_accepted_at);
         self::assertTrue(Hash::check('SuperSecretPassword', $user->password));

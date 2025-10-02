@@ -2,11 +2,13 @@
 
 namespace Tests\Integration\Services;
 
-use App\Models\User;
 use App\Services\TokenManager;
 use Illuminate\Support\Facades\Cache;
 use Laravel\Sanctum\PersonalAccessToken;
+use PHPUnit\Framework\Attributes\Test;
 use Tests\TestCase;
+
+use function Tests\create_user;
 
 class TokenManagerTest extends TestCase
 {
@@ -19,59 +21,55 @@ class TokenManagerTest extends TestCase
         $this->tokenManager = app(TokenManager::class);
     }
 
-    public function testCreateTokenWithAllAbilities(): void
+    #[Test]
+    public function createTokenWithAllAbilities(): void
     {
-        /** @var User $user */
-        $user = User::factory()->create();
-        $token = $this->tokenManager->createToken($user);
+        $token = $this->tokenManager->createToken(create_user());
 
         self::assertTrue($token->accessToken->can('*'));
     }
 
-    public function testCreateTokenWithSpecificAbilities(): void
+    #[Test]
+    public function createTokenWithSpecificAbilities(): void
     {
-        /** @var User $user */
-        $user = User::factory()->create();
-        $token = $this->tokenManager->createToken($user, ['audio']);
+        $token = $this->tokenManager->createToken(create_user(), ['audio']);
 
         self::assertTrue($token->accessToken->can('audio'));
         self::assertFalse($token->accessToken->can('video'));
         self::assertFalse($token->accessToken->can('*'));
     }
 
-    public function testCreateCompositionToken(): void
+    #[Test]
+    public function createCompositionToken(): void
     {
-        /** @var User $user */
-        $user = User::factory()->create();
-        $token = $this->tokenManager->createCompositionToken($user);
+        $token = $this->tokenManager->createCompositeToken(create_user());
 
-        self::assertModelExists(PersonalAccessToken::findToken($token->apiToken));
+        $this->assertModelExists(PersonalAccessToken::findToken($token->apiToken));
 
         $audioTokenInstance = PersonalAccessToken::findToken($token->audioToken);
-        self::assertModelExists($audioTokenInstance);
+        $this->assertModelExists($audioTokenInstance);
 
         /** @var string $cachedAudioToken */
-        $cachedAudioToken = Cache::get("app.composition-tokens.$token->apiToken");
+        $cachedAudioToken = Cache::get("app.composite-tokens.$token->apiToken");
         self::assertTrue($audioTokenInstance->is(PersonalAccessToken::findToken($cachedAudioToken)));
     }
 
-    public function testDeleteCompositionToken(): void
+    #[Test]
+    public function deleteCompositionToken(): void
     {
-        /** @var User $user */
-        $user = User::factory()->create();
-        $token = $this->tokenManager->createCompositionToken($user);
+        $token = $this->tokenManager->createCompositeToken(create_user());
 
         $this->tokenManager->deleteCompositionToken($token->apiToken);
 
         self::assertNull(PersonalAccessToken::findToken($token->apiToken));
         self::assertNull(PersonalAccessToken::findToken($token->audioToken));
-        self::assertNull(Cache::get("app.composition-tokens.$token->apiToken"));
+        self::assertNull(Cache::get("app.composite-tokens.$token->apiToken"));
     }
 
-    public function testDestroyTokens(): void
+    #[Test]
+    public function destroyTokens(): void
     {
-        /** @var User $user */
-        $user = User::factory()->create();
+        $user = create_user();
         $user->createToken('foo');
         $user->createToken('bar');
 
@@ -82,35 +80,33 @@ class TokenManagerTest extends TestCase
         self::assertSame(0, $user->tokens()->count());
     }
 
-    public function testDeleteTokenByPlainTextToken(): void
+    #[Test]
+    public function deleteTokenByPlainTextToken(): void
     {
-        /** @var User $user */
-        $user = User::factory()->create();
-        $token = $this->tokenManager->createToken($user);
-        self::assertModelExists($token->accessToken);
+        $token = $this->tokenManager->createToken(create_user());
+        $this->assertModelExists($token->accessToken);
 
         $this->tokenManager->deleteTokenByPlainTextToken($token->plainTextToken);
 
-        self::assertModelMissing($token->accessToken);
+        $this->assertModelMissing($token->accessToken);
     }
 
-    public function testGetUserFromPlainTextToken(): void
+    #[Test]
+    public function getUserFromPlainTextToken(): void
     {
-        /** @var User $user */
-        $user = User::factory()->create();
+        $user = create_user();
         $token = $this->tokenManager->createToken($user);
 
         self::assertTrue($user->is($this->tokenManager->getUserFromPlainTextToken($token->plainTextToken)));
     }
 
-    public function testReplaceApiToken(): void
+    #[Test]
+    public function replaceApiToken(): void
     {
-        /** @var User $user */
-        $user = User::factory()->create();
-        $oldToken = $this->tokenManager->createToken($user);
+        $oldToken = $this->tokenManager->createToken(create_user());
         $newToken = $this->tokenManager->refreshApiToken($oldToken->plainTextToken);
 
-        self::assertModelMissing($oldToken->accessToken);
-        self::assertModelExists($newToken->accessToken);
+        $this->assertModelMissing($oldToken->accessToken);
+        $this->assertModelExists($newToken->accessToken);
     }
 }

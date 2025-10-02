@@ -2,72 +2,73 @@
 
 namespace App\Services;
 
+use App\Enums\Acl\Role;
 use App\Exceptions\InvitationNotFoundException;
+use App\Helpers\Uuid;
 use App\Mail\UserInvite;
 use App\Models\User;
-use Illuminate\Contracts\Hashing\Hasher as Hash;
+use App\Repositories\UserRepository;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Mail;
-use Illuminate\Support\Str;
 
 class UserInvitationService
 {
-    public function __construct(private Hash $hash)
+    public function __construct(private readonly UserRepository $userRepository)
     {
     }
 
-    /** @return Collection|array<array-key, User> */
-    public function invite(array $emails, bool $isAdmin, User $invitor): Collection
+    /** @return Collection<array-key, User> */
+    public function invite(array $emails, Role $role, User $invitor): Collection
     {
-        return DB::transaction(function () use ($emails, $isAdmin, $invitor) {
-            return collect($emails)->map(fn ($email) => $this->inviteOne($email, $isAdmin, $invitor));
+        $role->assertAvailable();
+
+        return DB::transaction(function () use ($emails, $role, $invitor) {
+            return collect($emails)->map(fn ($email) => $this->inviteOne($email, $role, $invitor));
         });
     }
 
-    /** @throws InvitationNotFoundException */
     public function getUserProspectByToken(string $token): User
     {
-        return User::query()->where('invitation_token', $token)->firstOr(static function (): void {
+        return User::query()->where('invitation_token', $token)->firstOr(static function (): never {
             throw new InvitationNotFoundException();
         });
     }
 
-    /** @throws InvitationNotFoundException */
     public function revokeByEmail(string $email): void
     {
-        /** @var ?User $user */
-        $user = User::query()->where('email', $email)->first();
+        $user = $this->userRepository->findOneByEmail($email);
         throw_unless($user?->is_prospect, new InvitationNotFoundException());
         $user->delete();
     }
 
-    private function inviteOne(string $email, bool $isAdmin, User $invitor): User
+    private function inviteOne(string $email, Role $role, User $invitor): User
     {
+        $role->assertAvailable();
+
         /** @var User $invitee */
-        $invitee = User::query()->create([
+        $invitee = $invitor->organization->users()->create([
             'name' => '',
             'email' => $email,
             'password' => '',
-            'is_admin' => $isAdmin,
             'invited_by_id' => $invitor->id,
-            'invitation_token' => Str::uuid()->toString(),
+            'invitation_token' => Uuid::generate(),
             'invited_at' => now(),
-        ]);
+        ])->syncRoles($role);
 
         Mail::to($email)->queue(new UserInvite($invitee));
 
         return $invitee;
     }
 
-    /** @throws InvitationNotFoundException */
     public function accept(string $token, string $name, string $password): User
     {
         $user = $this->getUserProspectByToken($token);
 
-        $user->update([
+        $user->update(attributes: [
             'name' => $name,
-            'password' => $this->hash->make($password),
+            'password' => Hash::make($password),
             'invitation_token' => null,
             'invitation_accepted_at' => now(),
         ]);

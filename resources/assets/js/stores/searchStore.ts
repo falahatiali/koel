@@ -1,38 +1,53 @@
 import { reactive } from 'vue'
-import { http } from '@/services'
-import { albumStore, artistStore, songStore } from '@/stores'
+import { http } from '@/services/http'
+import { albumStore } from '@/stores/albumStore'
+import { artistStore } from '@/stores/artistStore'
+import { playableStore } from '@/stores/playableStore'
+import { radioStationStore } from '@/stores/radioStationStore'
 
-type ExcerptState = {
-  songs: Song[],
-  albums: Album[],
+export interface ExcerptState {
+  playables: Playable[]
+  albums: Album[]
   artists: Artist[]
+  podcasts: Podcast[]
+  radio_stations: RadioStation[]
 }
 
-export type ExcerptSearchResult = ExcerptState
+export interface ExcerptSearchResult {
+  songs: Playable[] // backward compatibility
+  albums: Album[]
+  artists: Artist[]
+  podcasts: Podcast[]
+  radio_stations: RadioStation[]
+}
 
 export const searchStore = {
   state: reactive({
     excerpt: {
-      songs: [],
+      playables: [],
       albums: [],
-      artists: []
+      artists: [],
+      podcasts: [],
+      radio_stations: [],
     } as ExcerptState,
-    songs: [] as Song[]
+    playables: [] as Playable[],
   }),
 
   async excerptSearch (q: string) {
     const result = await http.get<ExcerptSearchResult>(`search?q=${q}`)
 
-    this.state.excerpt.songs = songStore.syncWithVault(result.songs)
+    this.state.excerpt.playables = playableStore.syncWithVault(result.songs)
     this.state.excerpt.albums = albumStore.syncWithVault(result.albums)
     this.state.excerpt.artists = artistStore.syncWithVault(result.artists)
+    this.state.excerpt.podcasts = result.podcasts
+    this.state.excerpt.radio_stations = radioStationStore.sync(result.radio_stations)
   },
 
-  async songSearch (q: string) {
-    this.state.songs = songStore.syncWithVault(await http.get<Song[]>(`search/songs?q=${q}`))
+  async playableSearch (q: string) {
+    this.state.playables = playableStore.syncWithVault(await http.get<Playable[]>(`search/songs?q=${q}`))
   },
 
-  resetSongResultState () {
-    this.state.songs = []
-  }
+  resetPlayableResultState () {
+    this.state.playables = []
+  },
 }

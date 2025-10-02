@@ -1,40 +1,44 @@
-import { expect, it } from 'vitest'
-import factory from '@/__tests__/factory'
-import UnitTestCase from '@/__tests__/UnitTestCase'
-import { commonStore, genreStore } from '@/stores'
+import { describe, expect, it } from 'vitest'
 import { screen, waitFor } from '@testing-library/vue'
-import GenreListScreen from './GenreListScreen.vue'
+import { createHarness } from '@/__tests__/TestHarness'
+import { commonStore } from '@/stores/commonStore'
+import { genreStore } from '@/stores/genreStore'
+import Component from './GenreListScreen.vue'
 
-new class extends UnitTestCase {
-  protected test () {
-    it('renders the list of genres and their song counts', async () => {
-      // ensure there's no duplicated names
-      const genres = [
-        factory<Genre>('genre', { name: 'Rock', song_count: 10 }),
-        factory<Genre>('genre', { name: 'Pop', song_count: 20 }),
-        factory<Genre>('genre', { name: 'Jazz', song_count: 30 })
-      ]
+describe('genreListScreen', () => {
+  const h = createHarness()
 
-      const fetchMock = this.mock(genreStore, 'fetchAll').mockResolvedValue(genres)
+  const renderComponent = async (genres?: Genre[]) => {
+    genres = genres || h.factory('genre', 5)
+    const fetchMock = h.mock(genreStore, 'fetchAll').mockResolvedValue(genres)
 
-      this.render(GenreListScreen)
-
-      await waitFor(() => {
-        expect(fetchMock).toHaveBeenCalled()
-        genres.forEach(genre => screen.getByTitle(`${genre.name}: ${genre.song_count} songs`))
-      })
+    const rendered = h.render(Component, {
+      global: {
+        stubs: {
+          GenreCard: h.stub('genre-card'),
+        },
+      },
     })
 
-    it('shows a message when the library is empty', async () => {
-      commonStore.state.song_length = 0
-      const fetchMock = this.mock(genreStore, 'fetchAll')
-
-      this.render(GenreListScreen)
-
-      await waitFor(() => {
-        expect(fetchMock).not.toHaveBeenCalled()
-        screen.getByTestId('screen-empty-state')
-      })
-    })
+    return {
+      genres,
+      fetchMock,
+      ...rendered,
+    }
   }
-}
+
+  it('renders the list of genres', async () => {
+    await renderComponent()
+    await waitFor(() => expect(screen.queryAllByTestId('genre-card')).toHaveLength(5))
+  })
+
+  it('shows a message when the library is empty', async () => {
+    commonStore.state.song_length = 0
+    const { fetchMock } = await renderComponent()
+
+    await waitFor(() => {
+      expect(fetchMock).not.toHaveBeenCalled()
+      screen.getByTestId('screen-empty-state')
+    })
+  })
+})

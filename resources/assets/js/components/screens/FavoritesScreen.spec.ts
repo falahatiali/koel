@@ -1,37 +1,36 @@
 import { screen, waitFor } from '@testing-library/vue'
-import { expect, it } from 'vitest'
-import factory from '@/__tests__/factory'
-import UnitTestCase from '@/__tests__/UnitTestCase'
-import { favoriteStore } from '@/stores'
-import FavoritesScreen from './FavoritesScreen.vue'
+import { describe, expect, it } from 'vitest'
+import { createHarness } from '@/__tests__/TestHarness'
+import { playableStore } from '@/stores/playableStore'
+import Component from './FavoritesScreen.vue'
 
-new class extends UnitTestCase {
-  private async renderComponent () {
-    const fetchMock = this.mock(favoriteStore, 'fetch')
-    this.render(FavoritesScreen)
+describe('favoritesScreen.vue', () => {
+  const h = createHarness()
 
-    await this.router.activateRoute({ path: 'favorites', screen: 'Favorites' })
+  const renderComponent = async () => {
+    const fetchMock = h.mock(playableStore, 'fetchFavorites')
+
+    h.render(Component)
+    h.visit('/favorites')
 
     await waitFor(() => expect(fetchMock).toHaveBeenCalled())
   }
 
-  protected test () {
-    it('renders a list of favorites', async () => {
-      favoriteStore.state.songs = factory<Song>('song', 13)
-      await this.renderComponent()
+  it('renders a list of favorites', async () => {
+    playableStore.state.favorites = h.factory('song', 13)
+    await renderComponent()
 
-      await waitFor(() => {
-        expect(screen.queryByTestId('screen-empty-state')).toBeNull()
-        screen.getByTestId('song-list')
-      })
+    await waitFor(() => {
+      expect(screen.queryByTestId('screen-empty-state')).toBeNull()
+      screen.getByTestId('song-list')
     })
+  })
 
-    it('shows empty state', async () => {
-      favoriteStore.state.songs = []
-      await this.renderComponent()
+  it('shows empty state', async () => {
+    playableStore.state.favorites = []
+    await renderComponent()
 
-      screen.getByTestId('screen-empty-state')
-      expect(screen.queryByTestId('song-list')).toBeNull()
-    })
-  }
-}
+    screen.getByTestId('screen-empty-state')
+    expect(screen.queryByTestId('song-list')).toBeNull()
+  })
+})

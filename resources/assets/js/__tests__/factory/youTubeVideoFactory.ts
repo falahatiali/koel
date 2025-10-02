@@ -1,16 +1,16 @@
-import { Faker } from '@faker-js/faker'
+import { faker } from '@faker-js/faker'
 
-export default (faker: Faker): YouTubeVideo => ({
+export default (): YouTubeVideo => ({
   id: {
-    videoId: faker.random.alphaNumeric(16)
+    videoId: faker.string.alphanumeric(16),
   },
   snippet: {
     title: faker.lorem.sentence(),
     description: faker.lorem.paragraph(),
     thumbnails: {
       default: {
-        url: faker.image.imageUrl()
-      }
-    }
-  }
+        url: faker.image.url(),
+      },
+    },
+  },
 })

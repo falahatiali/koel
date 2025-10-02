@@ -4,25 +4,32 @@ namespace Tests\Unit\Models;
 
 use App\Models\Album;
 use App\Models\Artist;
+use PHPUnit\Framework\Attributes\DataProvider;
+use PHPUnit\Framework\Attributes\Test;
 use Tests\TestCase;
 
 class AlbumTest extends TestCase
 {
-    public function testExistingAlbumCanBeRetrievedUsingArtistAndName(): void
+    #[Test]
+    public function existingAlbumCanBeRetrievedUsingArtistAndName(): void
     {
-        /** @var Album $album */
-        $album = Album::factory()->create();
+        /** @var Artist $artist */
+        $artist = Artist::factory()->create();
 
-        self::assertTrue(Album::getOrCreate($album->artist, $album->name)->is($album));
+        /** @var Album $album */
+        $album = Album::factory()->for($artist)->for($artist->user)->create();
+
+        self::assertTrue(Album::getOrCreate($artist, $album->name)->is($album));
     }
 
-    public function testNewAlbumIsAutomaticallyCreatedWithArtistAndName(): void
+    #[Test]
+    public function newAlbumIsAutomaticallyCreatedWithUserAndArtistAndName(): void
     {
         /** @var Artist $artist */
         $artist = Artist::factory()->create();
         $name = 'Foo';
 
-        self::assertNull(Album::query()->where('artist_id', $artist->id)->where('name', $name)->first());
+        self::assertNull(Album::query()->whereBelongsTo($artist)->where('name', $name)->first());
 
         $album = Album::getOrCreate($artist, $name);
         self::assertSame('Foo', $album->name);
@@ -30,7 +37,7 @@ class AlbumTest extends TestCase
     }
 
     /** @return array<mixed> */
-    public function provideEmptyAlbumNames(): array
+    public static function provideEmptyAlbumNames(): array
     {
         return [
             [''],
@@ -40,8 +47,9 @@ class AlbumTest extends TestCase
         ];
     }
 
-    /** @dataProvider provideEmptyAlbumNames */
-    public function testNewAlbumWithoutNameIsCreatedAsUnknownAlbum($name): void
+    #[DataProvider('provideEmptyAlbumNames')]
+    #[Test]
+    public function newAlbumWithoutNameIsCreatedAsUnknownAlbum($name): void
     {
         /** @var Artist $artist */
         $artist = Artist::factory()->create();

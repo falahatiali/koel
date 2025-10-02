@@ -3,21 +3,24 @@
 namespace Tests\Unit\Models;
 
 use App\Models\Setting;
+use PHPUnit\Framework\Attributes\Test;
 use Tests\TestCase;
 
 class SettingTest extends TestCase
 {
-    public function testSetKeyValuePair(): void
+    #[Test]
+    public function setKeyValuePair(): void
     {
         Setting::set('foo', 'bar');
 
-        self::assertDatabaseHas(Setting::class, [
+        $this->assertDatabaseHas(Setting::class, [
             'key' => 'foo',
             'value' => json_encode('bar'),
         ]);
     }
 
-    public function testSupportAssociativeArray(): void
+    #[Test]
+    public function supportAssociativeArray(): void
     {
         $settings = [
             'foo' => 'bar',
@@ -26,7 +29,7 @@ class SettingTest extends TestCase
 
         Setting::set($settings);
 
-        self::assertDatabaseHas(Setting::class, [
+        $this->assertDatabaseHas(Setting::class, [
             'key' => 'foo',
             'value' => json_encode('bar'),
         ])->assertDatabaseHas(Setting::class, [
@@ -35,7 +38,8 @@ class SettingTest extends TestCase
         ]);
     }
 
-    public function testUpdateSettings(): void
+    #[Test]
+    public function updateSettings(): void
     {
         Setting::set('foo', 'bar');
         Setting::set('foo', 'baz');
@@ -43,7 +47,8 @@ class SettingTest extends TestCase
         self::assertSame('baz', Setting::get('foo'));
     }
 
-    public function testGetSettings(): void
+    #[Test]
+    public function getSettings(): void
     {
         Setting::factory()->create([
             'key' => 'foo',

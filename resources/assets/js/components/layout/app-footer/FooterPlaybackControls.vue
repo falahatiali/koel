@@ -1,80 +1,72 @@
 <template>
-  <div class="playback-controls" data-testid="footer-middle-pane">
-    <div class="buttons">
-      <LikeButton v-if="song" :song="song" class="like-btn" />
-      <button v-else type="button" /> <!-- a placeholder to maintain the flex layout -->
+  <div class="playback-controls flex flex-1 flex-col justify-center">
+    <div class="flex items-center justify-between md:justify-center gap-5 md:gap-12 px-4 md:px-0">
+      <FavoriteButton
+        v-if="streamable"
+        :favorite="streamable.favorite"
+        class="text-base scale-105 origin-top"
+        @toggle="toggleFavorite"
+      />
 
-      <button type="button" title="Play previous song" @click.prevent="playPrev">
+      <button v-else type="button" /> <!-- a placeholder to maintain the asymmetric layout -->
+
+      <FooterBtn
+        :class="isRadio && 'pointer-events-none opacity-30 cursor-not-allowed'"
+        class="text-2xl"
+        title="Play previous in queue"
+        @click.prevent="playPrev"
+      >
         <Icon :icon="faStepBackward" />
-      </button>
+      </FooterBtn>
 
       <PlayButton />
 
-      <button type="button" title="Play next song" @click.prevent="playNext">
+      <FooterBtn
+        :class="isRadio && 'pointer-events-none opacity-30 cursor-not-allowed'"
+        class="text-2xl"
+        title="Play next in queue"
+        @click.prevent="playNext"
+      >
         <Icon :icon="faStepForward" />
-      </button>
+      </FooterBtn>
 
-      <RepeatModeSwitch class="repeat-mode-btn" />
+      <RepeatModeSwitch :class="isRadio && 'pointer-events-none opacity-30 cursor-not-allowed'" class="text-base" />
     </div>
   </div>
 </template>
 
 <script lang="ts" setup>
 import { faStepBackward, faStepForward } from '@fortawesome/free-solid-svg-icons'
-import { ref } from 'vue'
-import { playbackService } from '@/services'
-import { requireInjection } from '@/utils'
-import { CurrentSongKey } from '@/symbols'
+import { computed, ref } from 'vue'
+import { requireInjection } from '@/utils/helpers'
+import { CurrentStreamableKey } from '@/symbols'
+import { playableStore } from '@/stores/playableStore'
+import { playback } from '@/services/playbackManager'
+import { radioStationStore } from '@/stores/radioStationStore'
 
 import RepeatModeSwitch from '@/components/ui/RepeatModeSwitch.vue'
-import LikeButton from '@/components/song/SongLikeButton.vue'
 import PlayButton from '@/components/ui/FooterPlayButton.vue'
+import FooterBtn from '@/components/layout/app-footer/FooterButton.vue'
+import FavoriteButton from '@/components/ui/FavoriteButton.vue'
 
-const song = requireInjection(CurrentSongKey, ref())
+const streamable = requireInjection(CurrentStreamableKey, ref())
 
-const playPrev = async () => await playbackService.playPrev()
-const playNext = async () => await playbackService.playNext()
-</script>
+const isRadio = computed(() => streamable.value?.type === 'radio-stations')
 
-<style lang="scss" scoped>
-.playback-controls {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  place-content: center;
-  place-items: center;
+const playPrev = async () => isRadio.value || await playback().playPrev()
+const playNext = async () => isRadio.value || await playback().playNext()
 
-  :fullscreen & {
-    transform: scale(1.2);
+const toggleFavorite = () => {
+  if (isRadio.value) {
+    radioStationStore.toggleFavorite(streamable.value as RadioStation)
+  } else {
+    playableStore.toggleFavorite(streamable.value as Playable)
   }
 }
+</script>
 
-.buttons {
-  color: var(--color-text-secondary);
-  display: flex;
-  place-content: center;
-  place-items: center;
-  gap: 2rem;
-
-  @media screen and (max-width: 768px) {
-    gap: .75rem;
-  }
-
-  button {
-    color: currentColor;
-    font-size: 1.5rem;
-    width: 2.5rem;
-    aspect-ratio: 1/1;
-    transition: all .2s ease-in-out;
-    transition-property: color, border, transform;
-
-    &:hover {
-      color: var(--color-text-primary);
-    }
-
-    &.like-btn, &.repeat-mode-btn {
-      font-size: 1rem;
-    }
-  }
+<style lang="postcss" scoped>
+:fullscreen .playback-controls {
+  @apply scale-125;
 }
 </style>

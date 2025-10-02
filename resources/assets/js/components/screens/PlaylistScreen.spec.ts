@@ -1,77 +1,106 @@
-import { expect, it } from 'vitest'
-import factory from '@/__tests__/factory'
-import UnitTestCase from '@/__tests__/UnitTestCase'
-import { eventBus } from '@/utils'
 import { screen, waitFor } from '@testing-library/vue'
-import { playlistStore, songStore } from '@/stores'
-import { downloadService } from '@/services'
-import PlaylistScreen from './PlaylistScreen.vue'
+import type { Mock } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
+import { createHarness } from '@/__tests__/TestHarness'
+import { eventBus } from '@/utils/eventBus'
+import { playlistStore } from '@/stores/playlistStore'
+import { playableStore } from '@/stores/playableStore'
+import Router from '@/router'
+import type { Events } from '@/config/events'
+import { useContextMenu } from '@/composables/useContextMenu'
+import { assertOpenContextMenu } from '@/__tests__/assertions'
+import PlaylistContextMenu from '@/components/playlist/PlaylistContextMenu.vue'
+import Component from './PlaylistScreen.vue'
 
-let playlist: Playlist
+describe('playlistScreen.vue', () => {
+  const h = createHarness()
 
-new class extends UnitTestCase {
-  private async renderComponent (songs: Song[]) {
-    playlist = playlist || factory<Playlist>('playlist')
+  const renderComponent = async (songs: Playable[] = []) => {
+    const playlist = h.factory('playlist')
+    h.actingAsUser(h.factory.states('current')('user', { id: playlist.owner_id }) as CurrentUser)
+
+    playlistStore.state.playlists = []
     playlistStore.init([playlist])
+    playlist.playables = songs
 
-    const fetchMock = this.mock(songStore, 'fetchForPlaylist').mockResolvedValue(songs)
+    const fetchSongsMock = h.mock(playableStore, 'fetchForPlaylist').mockResolvedValueOnce(songs)
 
-    this.render(PlaylistScreen)
+    const rendered = h.render(Component, {
+      global: {
+        stubs: {
+          FavoriteButton: h.stub('favorite-button', true),
+        },
+      },
+    })
 
-    await this.router.activateRoute({
-      path: `playlists/${playlist.id}`,
-      screen: 'Playlist'
-    }, { id: playlist.id.toString() })
+    h.visit(`playlists/${playlist.id}`)
 
-    await waitFor(() => expect(fetchMock).toHaveBeenCalledWith(playlist, false))
+    await waitFor(() => expect(fetchSongsMock).toHaveBeenCalledWith(playlist, false))
 
-    return { fetchMock }
+    return {
+      ...rendered,
+      playlist,
+      fetchSongsMock,
+    }
   }
 
-  protected test () {
-    it('renders the playlist', async () => {
-      await this.renderComponent(factory<Song>('song', 10))
+  it('renders the playlist', async () => {
+    await renderComponent(h.factory('song', 10))
 
-      await waitFor(() => {
-        screen.getByTestId('song-list')
-        expect(screen.queryByTestId('screen-empty-state')).toBeNull()
-      })
+    await waitFor(() => {
+      screen.getByTestId('song-list')
+      expect(screen.queryByTestId('screen-empty-state')).toBeNull()
     })
+  })
 
-    it('displays the empty state if playlist is empty', async () => {
-      await this.renderComponent([])
+  it('displays the empty state if playlist is empty', async () => {
+    await renderComponent()
 
-      await waitFor(() => {
-        screen.getByTestId('screen-empty-state')
-        expect(screen.queryByTestId('song-list')).toBeNull()
-      })
+    await waitFor(() => {
+      screen.getByTestId('screen-empty-state')
+      expect(screen.queryByTestId('song-list')).toBeNull()
     })
+  })
 
-    it('downloads the playlist', async () => {
-      const downloadMock = this.mock(downloadService, 'fromPlaylist')
-      await this.renderComponent(factory<Song>('song', 10))
+  it('refreshes the playlist', async () => {
+    const { playlist, fetchSongsMock } = await renderComponent()
+    fetchSongsMock.mockResolvedValue(h.factory('song', 5))
 
-      await this.tick()
-      await this.user.click(screen.getByRole('button', { name: 'Download All' }))
+    await h.user.click(screen.getByRole('button', { name: 'Refresh' }))
 
-      await waitFor(() => expect(downloadMock).toHaveBeenCalledWith(playlist))
+    expect(fetchSongsMock).toHaveBeenCalledWith(playlist, true)
+  })
+
+  it('shows Actions menu', async () => {
+    vi.mock('@/composables/useContextMenu')
+    const { openContextMenu } = useContextMenu()
+    const { playlist } = await renderComponent()
+
+    await waitFor(async () => {
+      await h.user.click(screen.getByRole('button', { name: 'More Actions' }))
+      await assertOpenContextMenu(openContextMenu as Mock, PlaylistContextMenu, { playlist })
     })
+  })
 
-    it('deletes the playlist', async () => {
-      const emitMock = this.mock(eventBus, 'emit')
-      await this.renderComponent([])
+  it('goes back to home if playlist is deleted', async () => {
+    const goMock = h.mock(Router, 'go')
+    const { playlist } = await renderComponent()
+    eventBus.emit('PLAYLIST_DELETED', playlist)
 
-      await this.user.click(screen.getByRole('button', { name: 'Delete this playlist' }))
+    await h.tick()
 
-      await waitFor(() => expect(emitMock).toHaveBeenCalledWith('PLAYLIST_DELETE', playlist))
-    })
+    expect(goMock).toHaveBeenCalledWith('/#/home')
+  })
 
-    it('refreshes the playlist', async () => {
-      const { fetchMock } = await this.renderComponent([])
+  it.each<[keyof Events]>([['PLAYLIST_UPDATED'], ['PLAYLIST_COLLABORATOR_REMOVED']])(
+    'refreshes upon %s event trigger',
+    async eventKey => {
+      const { playlist, fetchSongsMock } = await renderComponent()
+      fetchSongsMock.mockResolvedValueOnce(h.factory('song', 5))
 
-      await this.user.click(screen.getByRole('button', { name: 'Refresh' }))
+      eventBus.emit(eventKey, playlist)
 
-      expect(fetchMock).toHaveBeenCalledWith(playlist, true)
-    })
-  }
-}
+      expect(fetchSongsMock).toHaveBeenCalledWith(playlist, false)
+    },
+  )
+})

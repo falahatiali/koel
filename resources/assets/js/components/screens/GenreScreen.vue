@@ -1,116 +1,132 @@
 <template>
-  <section id="genreWrapper">
-    <ScreenHeader v-if="genre" :layout="headerLayout">
-      Genre: <span class="text-thin">{{ decodeURIComponent(name!) }}</span>
-      <ControlsToggle v-if="songs.length" v-model="showingControls" />
+  <ScreenBase>
+    <template #header>
+      <ScreenHeader v-if="genre" :layout="headerLayout">
+        <template v-if="genre.name">
+          <span class="font-thin">Genre:</span>
+          {{ genre.name }}
+        </template>
+        <span v-else class="font-thin italic">No Genre</span>
 
-      <template #thumbnail>
-        <ThumbnailStack :thumbnails="thumbnails" />
-      </template>
+        <template #thumbnail>
+          <ThumbnailStack :thumbnails />
+        </template>
 
-      <template v-if="genre" #meta>
-        <span>{{ pluralize(genre.song_count, 'song') }}</span>
-        <span>{{ duration }}</span>
-      </template>
+        <template v-if="genre" #meta>
+          <span>{{ pluralize(genre.song_count, 'song') }}</span>
+          <span>{{ duration }}</span>
+        </template>
 
-      <template #controls>
-        <SongListControls v-if="!isPhone || showingControls" @play-all="playAll" @play-selected="playSelected" />
-      </template>
-    </ScreenHeader>
-    <ScreenHeaderSkeleton v-else />
+        <template #controls>
+          <SongListControls :config @play-all="playAll" @play-selected="playSelected">
+            <Btn gray @click="requestContextMenu">
+              <Icon :icon="faEllipsis" fixed-width />
+              <span class="sr-only">More Actions</span>
+            </Btn>
+          </SongListControls>
+        </template>
+      </ScreenHeader>
+      <ScreenHeaderSkeleton v-else />
+    </template>
 
-    <SongListSkeleton v-if="showSkeletons" />
+    <PlayableListSkeleton v-if="showSkeletons" class="-m-6" />
     <SongList
       v-else
       ref="songList"
-      @sort="sort"
+      class="-m-6"
+      @sort="fetchWithSort"
       @press:enter="onPressEnter"
-      @scroll-breakpoint="onScrollBreakpoint"
+      @swipe="onSwipe"
       @scrolled-to-end="fetch"
     />
 
     <ScreenEmptyState v-if="!songs.length && !loading">
       <template #icon>
-        <Icon :icon="faTags" />
+        <GuitarIcon :size="96" />
       </template>
 
       No songs in this genre.
     </ScreenEmptyState>
-  </section>
+  </ScreenBase>
 </template>
 
 <script lang="ts" setup>
+import { faEllipsis } from '@fortawesome/free-solid-svg-icons'
 import { computed, onMounted, ref, watch } from 'vue'
-import { faTags } from '@fortawesome/free-solid-svg-icons'
-import { eventBus, logger, pluralize, secondsToHumanReadable } from '@/utils'
-import { playbackService } from '@/services'
-import { genreStore, songStore } from '@/stores'
-import { useDialogBox, useRouter, useSongList } from '@/composables'
+import { GuitarIcon } from 'lucide-vue-next'
+import { pluralize, secondsToHumanReadable } from '@/utils/formatters'
+import { eventBus } from '@/utils/eventBus'
+import { defineAsyncComponent } from '@/utils/helpers'
+import { genreStore } from '@/stores/genreStore'
+import { playableStore } from '@/stores/playableStore'
+import { playback } from '@/services/playbackManager'
+import { useRouter } from '@/composables/useRouter'
+import { useErrorHandler } from '@/composables/useErrorHandler'
+import { usePlayableList } from '@/composables/usePlayableList'
+import { usePlayableListControls } from '@/composables/usePlayableListControls'
+import { useContextMenu } from '@/composables/useContextMenu'
 
 import ScreenHeader from '@/components/ui/ScreenHeader.vue'
 import ScreenEmptyState from '@/components/ui/ScreenEmptyState.vue'
-import SongListSkeleton from '@/components/ui/skeletons/SongListSkeleton.vue'
-import ScreenHeaderSkeleton from '@/components/ui/skeletons/ScreenHeaderSkeleton.vue'
+import PlayableListSkeleton from '@/components/playable/playable-list/PlayableListSkeleton.vue'
+import ScreenHeaderSkeleton from '@/components/ui/ScreenHeaderSkeleton.vue'
+import ScreenBase from '@/components/screens/ScreenBase.vue'
+import Btn from '@/components/ui/form/Btn.vue'
+
+const ContextMenu = defineAsyncComponent(() => import('@/components/genre/GenreContextMenu.vue'))
+
+const songs = ref<Song[]>([])
 
 const {
-  SongList,
-  SongListControls,
-  ControlsToggle,
+  PlayableList: SongList,
   ThumbnailStack,
   headerLayout,
-  songs,
-  songList,
+  playableList: songList,
   thumbnails,
-  showingControls,
-  isPhone,
   onPressEnter,
   playSelected,
-  onScrollBreakpoint
-} = useSongList(ref<Song[]>([]))
+  onSwipe,
+} = usePlayableList(songs, { type: 'Genre' }, { sortable: true, filterable: false })
 
-const { showErrorDialog } = useDialogBox()
-const { getRouteParam, go, onRouteChanged } = useRouter()
+const { PlayableListControls: SongListControls, config } = usePlayableListControls('Genre')
+const { getRouteParam, isCurrentScreen, go, onRouteChanged, url } = useRouter()
+const { openContextMenu } = useContextMenu()
 
-let sortField: SongListSortField = 'title'
+let sortField: MaybeArray<PlayableListSortField> = 'title'
 let sortOrder: SortOrder = 'asc'
 
-const randomSongCount = 500
-const name = ref<string | null>(null)
+const id = ref<Genre['id'] | null>(null)
 const genre = ref<Genre | null>(null)
 const loading = ref(false)
 const page = ref<number | null>(1)
 
 const moreSongsAvailable = computed(() => page.value !== null)
 const showSkeletons = computed(() => loading.value && songs.value.length === 0)
-const duration = computed(() => secondsToHumanReadable(genre.value?.length ?? 0))
-
-const sort = async (field: SongListSortField, order: SortOrder) => {
-  page.value = 1
-  songs.value = []
-  sortField = field
-  sortOrder = order
-
-  await fetch()
-}
+const duration = computed(() => genre.value ? secondsToHumanReadable(genre.value.length) : '')
 
 const fetch = async () => {
-  if (!moreSongsAvailable.value || loading.value) return
+  if (!moreSongsAvailable.value || loading.value) {
+    return
+  }
 
   loading.value = true
 
   try {
-    let fetched
+    let fetched: { songs: Song[], nextPage: number | null }
 
     [genre.value, fetched] = await Promise.all([
-      genreStore.fetchOne(name.value!),
-      songStore.paginateForGenre(name.value!, sortField, sortOrder, page.value!)
+      genreStore.fetchOne(id.value!),
+      playableStore.paginateSongsByGenre(id.value!, {
+        sort: sortField,
+        order: sortOrder,
+        page: page.value!,
+      }),
     ])
 
     page.value = fetched.nextPage
     songs.value.push(...fetched.songs)
-  } catch (e) {
-    showErrorDialog('Failed to fetch genre details or genre was not found.', 'Error')
-    logger.error(e)
+  } catch (error: unknown) {
+    useErrorHandler('dialog').handleHttpError(error)
   } finally {
     loading.value = false
   }
@@ -124,29 +140,48 @@ const refresh = async () => {
   await fetch()
 }
 
-const getNameFromRoute = () => getRouteParam('name') ?? null
+const fetchWithSort = async (field: MaybeArray<PlayableListSortField>, order: SortOrder) => {
+  page.value = 1
+  songs.value = []
+  sortField = field
+  sortOrder = order
 
-onRouteChanged(route => {
-  if (route.screen !== 'Genre') return
-  name.value = getNameFromRoute()
-})
-
-const playAll = async () => {
-  if (!genre.value) return
-
-  // we ignore the queueAndPlay's await to avoid blocking the UI
-  if (genre.value!.song_count <= randomSongCount) {
-    playbackService.queueAndPlay(songs.value, true)
-  } else {
-    playbackService.queueAndPlay(await songStore.fetchRandomForGenre(genre.value!, randomSongCount))
-  }
-
-  go('queue')
+  await fetch()
 }
 
-onMounted(() => (name.value = getNameFromRoute()))
+const getIdFromRoute = () => getRouteParam('id') ?? null
 
-watch(name, async () => name.value && await refresh())
+onRouteChanged(route => {
+  if (route.screen === 'Genre') {
+    id.value = getIdFromRoute()
+  }
+})
+
+const playAll = async (shuffle = false) => {
+  if (!genre.value) {
+    return
+  }
+
+  go(url('queue'))
+
+  if (shuffle) {
+    await playback().queueAndPlay(await playableStore.fetchSongsByGenre(genre.value!, true))
+  } else {
+    await playback().queueAndPlay(await playableStore.fetchSongsByGenre(genre.value!, false))
+  }
+}
+
+const requestContextMenu = (event: MouseEvent) => openContextMenu<'GENRE'>(ContextMenu, event, {
+  genre: genre.value!,
+})
+
+onMounted(() => {
+  if (isCurrentScreen('Genre')) {
+    id.value = getIdFromRoute()
+  }
+})
+
+watch(id, async () => id.value && await refresh())
 
 // We can't really tell how/if the genres have been updated, so we just refresh the list
 eventBus.on('SONGS_UPDATED', async () => genre.value && await refresh())

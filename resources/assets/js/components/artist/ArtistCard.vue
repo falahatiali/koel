@@ -1,5 +1,5 @@
 <template>
-  <ArtistAlbumCard
+  <BaseCard
     v-if="showing"
     :entity="artist"
     :layout="layout"
@@ -9,55 +9,66 @@
     @dragstart="onDragStart"
   >
     <template #name>
-      <a :href="`#/artist/${artist.id}`" class="text-normal" data-testid="name">{{ artist.name }}</a>
+      <a :href="url('artists.show', { id: artist.id })" class="font-medium" data-testid="name">
+        <ExternalMark v-if="artist.is_external" class="mr-1" />
+        {{ artist.name }}
+
+        <FavoriteButton v-if="artist.favorite" :favorite="artist.favorite" class="ml-1" @toggle="toggleFavorite" />
+      </a>
     </template>
     <template #meta>
-      <a
-        :title="`Shuffle all songs by ${artist.name}`"
-        class="shuffle-artist"
-        role="button"
-        @click.prevent="shuffle"
-      >
+      <a :title="`Shuffle all songs by ${artist.name}`" role="button" @click.prevent="shuffle">
         Shuffle
       </a>
-      <a
-        v-if="allowDownload"
-        :title="`Download all songs by ${artist.name}`"
-        class="download-artist"
-        role="button"
-        @click.prevent="download"
-      >
+      <a v-if="allowDownload" :title="`Download all songs by ${artist.name}`" role="button" @click.prevent="download">
         Download
       </a>
     </template>
-  </ArtistAlbumCard>
+  </BaseCard>
 </template>
 
 <script lang="ts" setup>
 import { computed, toRef, toRefs } from 'vue'
-import { eventBus } from '@/utils'
-import { artistStore, commonStore, songStore } from '@/stores'
-import { downloadService, playbackService } from '@/services'
-import { useDraggable, useRouter } from '@/composables'
+import { defineAsyncComponent } from '@/utils/helpers'
+import { artistStore } from '@/stores/artistStore'
+import { commonStore } from '@/stores/commonStore'
+import { playableStore } from '@/stores/playableStore'
+import { downloadService } from '@/services/downloadService'
+import { useDraggable } from '@/composables/useDragAndDrop'
+import { useRouter } from '@/composables/useRouter'
+import { playback } from '@/services/playbackManager'
+import { useContextMenu } from '@/composables/useContextMenu'
 
-import ArtistAlbumCard from '@/components/ui/ArtistAlbumCard.vue'
+import BaseCard from '@/components/ui/album-artist/AlbumOrArtistCard.vue'
+import ExternalMark from '@/components/ui/ExternalMark.vue'
+import FavoriteButton from '@/components/ui/FavoriteButton.vue'
 
-const { go } = useRouter()
+const props = withDefaults(defineProps<{ artist: Artist, layout?: CardLayout }>(), { layout: 'full' })
+
+const ContextMenu = defineAsyncComponent(() => import('@/components/artist/ArtistContextMenu.vue'))
+
+const { go, url } = useRouter()
 const { startDragging } = useDraggable('artist')
+const { openContextMenu } = useContextMenu()
 
-const props = withDefaults(defineProps<{ artist: Artist, layout?: ArtistAlbumCardLayout }>(), { layout: 'full' })
 const { artist, layout } = toRefs(props)
 
-const allowDownload = toRef(commonStore.state, 'allow_download')
+// We're not checking for supports_batch_downloading here, as the number of songs by the artist is not yet known.
+const allowDownload = toRef(commonStore.state, 'allows_download')
 
 const showing = computed(() => artistStore.isStandard(artist.value))
 
 const shuffle = async () => {
-  playbackService.queueAndPlay(await songStore.fetchForArtist(artist.value), true /* shuffled */)
-  go('queue')
+  playback().queueAndPlay(await playableStore.fetchSongsForArtist(artist.value), true /* shuffled */)
+  go(url('queue'))
 }
+
+const toggleFavorite = () => artistStore.toggleFavorite(artist.value)
 
 const download = () => downloadService.fromArtist(artist.value)
 const onDragStart = (event: DragEvent) => startDragging(event, artist.value)
-const requestContextMenu = (event: MouseEvent) => eventBus.emit('ARTIST_CONTEXT_MENU_REQUESTED', event, artist.value)
+
+const requestContextMenu = (event: MouseEvent) => openContextMenu<'ARTIST'>(ContextMenu, event, {
+  artist: artist.value,
+})
 </script>

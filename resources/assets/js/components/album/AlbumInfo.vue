@@ -1,85 +1,65 @@
 <template>
-  <article :class="mode" class="album-info" data-testid="album-info">
-    <h1 v-if="mode === 'aside'" class="name">
-      <span>{{ album.name }}</span>
-      <button :title="`Play all songs in ${album.name}`" class="control" type="button" @click.prevent="play">
-        <Icon :icon="faCirclePlay" size="xl" />
-      </button>
-    </h1>
+  <AlbumArtistInfo :mode="mode" data-testid="album-info">
+    <template #header>{{ album.name }}</template>
 
-    <main>
-      <AlbumThumbnail v-if="mode === 'aside'" :entity="album" />
+    <template #art>
+      <AlbumThumbnail :entity="album" class="group" />
+    </template>
 
-      <template v-if="info">
-        <div v-if="info.wiki?.summary" class="wiki">
-          <div v-if="showSummary" class="summary" data-testid="summary" v-html="info.wiki.summary" />
-          <div v-if="showFull" class="full" data-testid="full" v-html="info.wiki.full" />
+    <ParagraphSkeleton v-if="loading" />
 
-          <button v-if="showSummary" class="more" @click.prevent="showingFullWiki = true">
-            Full Wiki
-          </button>
-        </div>
+    <template v-if="!loading && info?.wiki">
+      <div v-html="info.wiki.full" />
 
-        <TrackList v-if="info.tracks?.length" :album="album" :tracks="info.tracks" data-testid="album-info-tracks" />
+      <TrackList
+        v-if="info.tracks?.length"
+        :album="album"
+        :tracks="info.tracks"
+        class="mt-8"
+        data-testid="album-info-tracks"
+      />
+    </template>
 
-        <footer>
-          Data &copy;
-          <a :href="info.url" rel="noopener" target="_blank">Last.fm</a>
-        </footer>
-      </template>
-    </main>
-  </article>
+    <template v-if="!loading && info?.url" #footer>
+      <a :href="info.url" rel="noopener" target="_blank">Source</a>
+    </template>
+  </AlbumArtistInfo>
 </template>
 
 <script lang="ts" setup>
-import { faCirclePlay } from '@fortawesome/free-solid-svg-icons'
-import { computed, defineAsyncComponent, ref, toRefs, watch } from 'vue'
-import { songStore } from '@/stores'
-import { mediaInfoService, playbackService } from '@/services'
-import { useRouter, useThirdPartyServices } from '@/composables'
+import { ref, toRefs, watch } from 'vue'
+import { encyclopediaService } from '@/services/encyclopediaService'
+import { useThirdPartyServices } from '@/composables/useThirdPartyServices'
+import { defineAsyncComponent } from '@/utils/helpers'
 
-import AlbumThumbnail from '@/components/ui/AlbumArtistThumbnail.vue'
-import { defaultCover } from '@/utils'
+import AlbumThumbnail from '@/components/ui/album-artist/AlbumOrArtistThumbnail.vue'
+import AlbumArtistInfo from '@/components/ui/album-artist/AlbumOrArtistInfo.vue'
+import ParagraphSkeleton from '@/components/ui/ParagraphSkeleton.vue'
+
+const props = withDefaults(defineProps<{ album: Album, mode?: EncyclopediaDisplayMode }>(), { mode: 'aside' })
 
 const TrackList = defineAsyncComponent(() => import('@/components/album/AlbumTrackList.vue'))
 
-const props = withDefaults(defineProps<{ album: Album, mode?: MediaInfoDisplayMode }>(), { mode: 'aside' })
 const { album, mode } = toRefs(props)
 
-const { go } = useRouter()
-const { useLastfm, useSpotify } = useThirdPartyServices()
+const { useMusicBrainz, useLastfm, useSpotify } = useThirdPartyServices()
 
+const loading = ref(false)
 const info = ref<AlbumInfo | null>(null)
-const showingFullWiki = ref(false)
 
 watch(album, async () => {
-  showingFullWiki.value = false
   info.value = null
 
-  if (useLastfm.value || useSpotify.value) {
-    info.value = await mediaInfoService.fetchForAlbum(album.value)
+  if (useMusicBrainz.value || useLastfm.value || useSpotify.value) {
+    loading.value = true
+    info.value = await encyclopediaService.fetchForAlbum(album.value)
+    loading.value = false
   }
-}, { immediate: true })
-
-const showSummary = computed(() => mode.value !== 'full' && !showingFullWiki.value)
-const showFull = computed(() => !showSummary.value)
-
-const play = async () => {
-  playbackService.queueAndPlay(await songStore.fetchForAlbum(album.value))
-  go('queue')
-}
+}, { immediate: true, deep: true })
 </script>
 
-<style lang="scss" scoped>
-.album-info {
-  @include artist-album-info();
-
-  .track-listing {
-    margin-top: 2rem;
-
-    :deep(h1) {
-      margin-bottom: 1.2rem;
-    }
-  }
+<style lang="postcss" scoped>
+:deep(.play-icon) {
+  @apply scale-[3];
 }
 </style>

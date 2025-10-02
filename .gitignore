@@ -11,6 +11,7 @@ db.mwb.bak
 bower_components
 /CHANGE
 koel.db
+/stats.html
 
 ### Node ###
 # Logs
@@ -81,8 +82,15 @@ cypress/downloads/
 /log
 coverage.xml
 .phpunit.result.cache
+.phpunit.cache
 log.json
 
 .php_cs.cache
 
+### VitePress ###
+docs/.vitepress/dist
+docs/.vitepress/cache
+
 demo-credits.json
+
+public/sandbox

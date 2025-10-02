@@ -1,14 +1,16 @@
 <template>
-  <span class="view-modes">
+  <span
+    class="flex w-[64px] border border-solid border-white/20 rounded-md overflow-hidden"
+  >
     <label
       v-koel-tooltip
       :class="{ active: value === 'thumbnails' }"
       class="thumbnails"
-      data-testid="view-mode-thumbnail"
+      data-testid="view-mode-thumbnails"
       title="View as thumbnails"
     >
       <input v-model="value" class="hidden" name="view-mode" type="radio" value="thumbnails">
-      <Icon :icon="faThumbnailsHehe" />
+      <LayoutGridIcon :size="16" />
       <span class="hidden">View as thumbnails</span>
     </label>
 
@@ -20,52 +22,32 @@
       title="View as list"
     >
       <input v-model="value" class="hidden" name="view-mode" type="radio" value="list">
-      <Icon :icon="faList" />
+      <LayoutListIcon :size="16" />
       <span class="hidden">View as list</span>
     </label>
   </span>
 </template>
 
 <script lang="ts" setup>
-import { faMicrosoft as faThumbnailsHehe } from '@fortawesome/free-brands-svg-icons'
-import { faList } from '@fortawesome/free-solid-svg-icons'
+import { LayoutGridIcon, LayoutListIcon } from 'lucide-vue-next'
 import { computed } from 'vue'
 
-const props = withDefaults(defineProps<{ modelValue?: ArtistAlbumViewMode }>(), { modelValue: 'thumbnails' })
+const props = withDefaults(defineProps<{ modelValue?: ViewMode }>(), { modelValue: 'thumbnails' })
 
-const emit = defineEmits<{ (e: 'update:modelValue', value: ArtistAlbumViewMode): void }>()
+const emit = defineEmits<{ (e: 'update:modelValue', value: ViewMode): void }>()
 
 const value = computed({
   get: () => props.modelValue,
-  set: value => emit('update:modelValue', value)
+  set: value => emit('update:modelValue', value),
 })
 </script>
 
-<style lang="scss" scoped>
-.view-modes {
-  display: flex;
-  width: 64px;
-  border: 1px solid rgba(255, 255, 255, .2);
-  border-radius: 5px;
-  overflow: hidden;
+<style lang="postcss" scoped>
+label {
+  @apply w-1/2 flex items-center justify-center h-full mb-0 cursor-pointer;
 
-  label {
-    width: 50%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    height: 2rem;
-    margin-bottom: 0;
-    cursor: pointer;
-
-    &.active {
-      background: var(--color-text-primary);
-      color: var(--color-bg-primary);
-    }
-  }
-
-  @media only screen and (max-width: 768px) {
-    margin-top: 8px;
+  &.active {
+    @apply bg-k-text-primary text-k-bg-primary;
   }
 }
 </style>

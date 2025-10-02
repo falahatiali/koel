@@ -1,10 +1,14 @@
+import axios from 'axios'
 import { without } from 'lodash'
 import { reactive } from 'vue'
-import { http } from '@/services'
-import { albumStore, commonStore, overviewStore, songStore } from '@/stores'
-import { logger } from '@/utils'
+import { http } from '@/services/http'
+import { albumStore } from '@/stores/albumStore'
+import { commonStore } from '@/stores/commonStore'
+import { playableStore } from '@/stores/playableStore'
+import { eventBus } from '@/utils/eventBus'
+import { logger } from '@/utils/logger'
 
-interface UploadResult {
+export interface UploadResult {
   song: Song
   album: Album
 }
@@ -27,7 +31,7 @@ export interface UploadFile {
 
 export const uploadService = {
   state: reactive({
-    files: [] as UploadFile[]
+    files: [] as UploadFile[],
   }),
 
   simultaneousUploads: 5,
@@ -56,11 +60,11 @@ export const uploadService = {
   },
 
   getUploadingFiles () {
-    return this.state.files.filter(file => file.status === 'Uploading')
+    return this.state.files.filter(({ status }) => status === 'Uploading')
   },
 
   getUploadCandidate () {
-    return this.state.files.find(file => file.status === 'Ready')
+    return this.state.files.find(({ status }) => status === 'Ready')
   },
 
   shouldWarnUponWindowUnload () {
@@ -78,26 +82,38 @@ export const uploadService = {
     file.status = 'Uploading'
 
     try {
-      const result = await http.post<UploadResult>('upload', formData, (progressEvent: ProgressEvent) => {
+      const result = await http.post<UploadResult | null>('upload', formData, (progressEvent: ProgressEvent) => {
         file.progress = progressEvent.loaded * 100 / progressEvent.total
       })
 
       file.status = 'Uploaded'
 
-      songStore.syncWithVault(result.song)
-      albumStore.syncWithVault(result.album)
-      commonStore.state.song_length += 1
-      overviewStore.refresh()
+      if (result) {
+        this.handleUploadResult(result)
+      }
 
       this.proceed() // upload the next file
 
       window.setTimeout(() => this.remove(file), 1000)
-    } catch (error: any) {
+    } catch (error: unknown) {
       logger.error(error)
-      file.message = `Upload failed: ${error.response?.data?.message || 'Unknown error'}`
       file.status = 'Errored'
+
+      if (axios.isAxiosError(error) && error.response?.data?.message) {
+        file.message = `Upload failed: ${error.response.data.message}`
+      } else {
+        file.message = 'Upload failed: Unknown error.'
+      }
+
       this.proceed() // upload the next file
     }
+  },
+
+  handleUploadResult: (result: UploadResult) => {
+    playableStore.syncWithVault(result.song)
+    albumStore.syncWithVault(result.album)
+    commonStore.state.song_length += 1
+    eventBus.emit('SONG_UPLOADED', result.song)
   },
 
   retry (file: UploadFile) {
@@ -117,6 +133,6 @@ export const uploadService = {
   },
 
   removeFailed () {
-    this.state.files = this.state.files.filter(file => file.status !== 'Errored')
-  }
+    this.state.files = this.state.files.filter(({ status }) => status !== 'Errored')
+  },
 }

@@ -1,35 +1,33 @@
-import { expect, it } from 'vitest'
-import UnitTestCase from '@/__tests__/UnitTestCase'
+import { describe, expect, it } from 'vitest'
 import { screen } from '@testing-library/vue'
 import { faHome } from '@fortawesome/free-solid-svg-icons'
-import SidebarItem from './SidebarItem.vue'
+import { createHarness } from '@/__tests__/TestHarness'
+import { eventBus } from '@/utils/eventBus'
+import Component from './SidebarItem.vue'
 
-new class extends UnitTestCase {
-  private renderComponent () {
-    return this.render(SidebarItem, {
+describe('sidebarItem.vue', () => {
+  const h = createHarness()
+
+  const renderComponent = () => {
+    return h.render(Component, {
       props: {
         icon: faHome,
         href: '#',
-        screen: 'Home'
+        screen: 'Home',
       },
       slots: {
-        default: 'Home'
-      }
+        default: 'Home',
+      },
     })
   }
 
-  protected test () {
-    it('renders', () => expect(this.renderComponent().html()).toMatchSnapshot())
+  it('renders', () => expect(renderComponent().html()).toMatchSnapshot())
 
-    it('activates when the screen matches', async () => {
-      this.renderComponent()
+  it('emits the sidebar toggle event when clicked', async () => {
+    const mock = h.mock(eventBus, 'emit')
+    renderComponent()
+    await h.user.click(screen.getByTestId('sidebar-item'))
 
-      await this.router.activateRoute({
-        screen: 'Home',
-        path: '_'
-      })
-
-      expect(screen.getByRole('link').classList.contains('active')).toBe(true)
-    })
-  }
-}
+    expect(mock).toHaveBeenCalledWith('TOGGLE_SIDEBAR')
+  })
+})

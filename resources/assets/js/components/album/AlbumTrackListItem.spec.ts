@@ -1,35 +1,36 @@
-import { screen } from '@testing-library/vue'
-import { expect, it } from 'vitest'
-import factory from '@/__tests__/factory'
-import { queueStore, songStore } from '@/stores'
-import { playbackService } from '@/services'
-import UnitTestCase from '@/__tests__/UnitTestCase'
-import { SongsKey } from '@/symbols'
 import { ref } from 'vue'
-import AlbumTrackListItem from './AlbumTrackListItem.vue'
+import { screen } from '@testing-library/vue'
+import { describe, expect, it } from 'vitest'
+import { createHarness } from '@/__tests__/TestHarness'
+import { playableStore } from '@/stores/playableStore'
+import { playbackService } from '@/services/QueuePlaybackService'
+import { PlayablesKey } from '@/symbols'
+import Component from './AlbumTrackListItem.vue'
 
-new class extends UnitTestCase {
-  private renderComponent (matchedSong?: Song) {
-    const songsToMatchAgainst = factory<Song>('song', 10)
-    const album = factory<Album>('album')
+describe('albumTrackListItem.vue', () => {
+  const h = createHarness()
 
-    const track = factory<AlbumTrack>('album-track', {
+  const renderComponent = (matchedSong?: Song) => {
+    const songsToMatchAgainst = h.factory('song', 10)
+    const album = h.factory('album')
+
+    const track = h.factory('album-track', {
       title: 'Fahrstuhl to Heaven',
-      length: 280
+      length: 280,
     })
 
-    const matchMock = this.mock(songStore, 'match', matchedSong)
+    const matchMock = h.mock(playableStore, 'matchSongsByTitle', matchedSong)
 
-    const rendered = this.render(AlbumTrackListItem, {
+    const rendered = h.render(Component, {
       props: {
         album,
-        track
+        track,
       },
       global: {
         provide: {
-          [<symbol>SongsKey]: ref(songsToMatchAgainst)
-        }
-      }
+          [<symbol>PlayablesKey]: ref(songsToMatchAgainst),
+        },
+      },
     })
 
     expect(matchMock).toHaveBeenCalledWith('Fahrstuhl to Heaven', songsToMatchAgainst)
@@ -37,20 +38,18 @@ new class extends UnitTestCase {
     return rendered
   }
 
-  protected test () {
-    it('renders', () => expect(this.renderComponent().html()).toMatchSnapshot())
+  it('renders', () => expect(renderComponent().html()).toMatchSnapshot())
 
-    it('plays', async () => {
-      const matchedSong = factory<Song>('song')
-      const queueMock = this.mock(queueStore, 'queueIfNotQueued')
-      const playMock = this.mock(playbackService, 'play')
+  it('plays', async () => {
+    h.createAudioPlayer()
 
-      this.renderComponent(matchedSong)
+    const matchedSong = h.factory('song')
+    const playMock = h.mock(playbackService, 'play')
 
-      await this.user.click(screen.getByTitle('Click to play'))
+    renderComponent(matchedSong)
 
-      expect(queueMock).toHaveBeenNthCalledWith(1, matchedSong)
-      expect(playMock).toHaveBeenNthCalledWith(1, matchedSong)
-    })
-  }
-}
+    await h.user.click(screen.getByTitle('Click to play'))
+
+    expect(playMock).toHaveBeenCalledWith(matchedSong)
+  })
+})

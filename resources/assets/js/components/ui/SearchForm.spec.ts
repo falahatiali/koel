@@ -1,45 +1,46 @@
-import { expect, it } from 'vitest'
-import UnitTestCase from '@/__tests__/UnitTestCase'
+import { describe, expect, it } from 'vitest'
 import { screen } from '@testing-library/vue'
-import { eventBus } from '@/utils'
-import SearchForm from './SearchForm.vue'
+import { createHarness } from '@/__tests__/TestHarness'
+import { eventBus } from '@/utils/eventBus'
+import Router from '@/router'
+import Component from './SearchForm.vue'
 
-new class extends UnitTestCase {
-  protected test () {
-    it('sets focus into search box when requested', async () => {
-      this.render(SearchForm)
+describe('searchForm.vue', () => {
+  const h = createHarness()
 
-      eventBus.emit('FOCUS_SEARCH_FIELD')
+  it('sets focus into search box when requested', async () => {
+    h.render(Component)
 
-      expect(screen.getByRole('searchbox')).toBe(document.activeElement)
-    })
+    eventBus.emit('FOCUS_SEARCH_FIELD')
 
-    it('goes to search screen when search box is focused', async () => {
-      const mock = this.mock(this.router, 'go')
-      this.render(SearchForm)
+    expect(screen.getByRole('searchbox')).toBe(document.activeElement)
+  })
 
-      await this.user.click(screen.getByRole('searchbox'))
+  it('goes to search screen when search box is focused', async () => {
+    const mock = h.mock(Router, 'go')
+    h.render(Component)
 
-      expect(mock).toHaveBeenCalledWith('search')
-    })
+    await h.user.click(screen.getByRole('searchbox'))
 
-    it('emits an event when search query is changed', async () => {
-      const mock = this.mock(eventBus, 'emit')
-      this.render(SearchForm)
+    expect(mock).toHaveBeenCalledWith('/#/search')
+  })
 
-      await this.type(screen.getByRole('searchbox'), 'hey')
+  it('emits an event when search query is changed', async () => {
+    const mock = h.mock(eventBus, 'emit')
+    h.render(Component)
 
-      expect(mock).toHaveBeenCalledWith('SEARCH_KEYWORDS_CHANGED', 'hey')
-    })
+    await h.type(screen.getByRole('searchbox'), 'hey')
 
-    it('goes to the search screen if the form is submitted', async () => {
-      const goMock = this.mock(this.router, 'go')
-      this.render(SearchForm)
+    expect(mock).toHaveBeenCalledWith('SEARCH_KEYWORDS_CHANGED', 'hey')
+  })
 
-      await this.type(screen.getByRole('searchbox'), 'hey')
-      await this.user.click(screen.getByRole('button', { name: 'Search' }))
+  it('goes to the search screen if the form is submitted', async () => {
+    const goMock = h.mock(Router, 'go')
+    h.render(Component)
 
-      expect(goMock).toHaveBeenCalledWith('search')
-    })
-  }
-}
+    await h.type(screen.getByRole('searchbox'), 'hey')
+    await h.user.click(screen.getByRole('button', { name: 'Search' }))
+
+    expect(goMock).toHaveBeenCalledWith('/#/search')
+  })
+})

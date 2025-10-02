@@ -2,65 +2,65 @@
 
 namespace App\Services;
 
-use App\Exceptions\MediaPathNotSetException;
 use App\Exceptions\SongUploadFailedException;
-use App\Models\Setting;
 use App\Models\Song;
-use Illuminate\Http\UploadedFile;
-
-use function Functional\memoize;
+use App\Models\User;
+use App\Services\Scanners\FileScanner;
+use App\Services\SongStorages\Contracts\MustDeleteTemporaryLocalFileAfterUpload;
+use App\Services\SongStorages\SongStorage;
+use App\Values\Scanning\ScanConfiguration;
+use App\Values\UploadReference;
+use Illuminate\Support\Facades\File;
+use Throwable;
 
 class UploadService
 {
-    private const UPLOAD_DIRECTORY = '__KOEL_UPLOADS__';
-
-    public function __construct(private FileSynchronizer $fileSynchronizer)
-    {
+    public function __construct(
+        private readonly SongService $songService,
+        private readonly SongStorage $storage,
+        private readonly FileScanner $scanner,
+    ) {
     }
 
-    public function handleUploadedFile(UploadedFile $file): Song
+    public function handleUpload(string $filePath, User $uploader): Song
     {
-        $targetFileName = $this->getTargetFileName($file);
-        $file->move($this->getUploadDirectory(), $targetFileName);
+        $uploadReference = $this->storage->storeUploadedFile($filePath, $uploader);
 
-        $targetPathName = $this->getUploadDirectory() . $targetFileName;
-        $result = $this->fileSynchronizer->setFile($targetPathName)->sync();
+        $config = ScanConfiguration::make(
+            owner: $uploader,
+            makePublic: $uploader->preferences->makeUploadsPublic,
+            extractFolderStructure: $this->storage->getStorageType()->supportsFolderStructureExtraction(),
+        );
 
-        if ($result->isError()) {
-            @unlink($targetPathName);
-            throw new SongUploadFailedException($result->error);
+        try {
+            $song = $this->songService->createOrUpdateSongFromScan(
+                $this->scanner->scan($uploadReference->localPath),
+                $config,
+            );
+        } catch (Throwable $error) {
+            $this->handleUploadFailure($uploadReference, $error);
         }
 
-        return $this->fileSynchronizer->getSong();
-    }
-
-    private function getUploadDirectory(): string
-    {
-        return memoize(static function (): string {
-            $mediaPath = Setting::get('media_path');
-
-            if (!$mediaPath) {
-                throw new MediaPathNotSetException();
-            }
-
-            return $mediaPath . DIRECTORY_SEPARATOR . self::UPLOAD_DIRECTORY . DIRECTORY_SEPARATOR;
-        });
-    }
-
-    private function getTargetFileName(UploadedFile $file): string
-    {
-        // If there's no existing file with the same name in the upload directory, use the original name.
-        // Otherwise, prefix the original name with a hash.
-        // The whole point is to keep a readable file name when we can.
-        if (!file_exists($this->getUploadDirectory() . $file->getClientOriginalName())) {
-            return $file->getClientOriginalName();
+        if ($this->storage instanceof MustDeleteTemporaryLocalFileAfterUpload) {
+            File::delete($uploadReference->localPath);
         }
 
-        return $this->getUniqueHash() . '_' . $file->getClientOriginalName();
+        // Since we scanned a local file, the song's path was initially set to the local path.
+        // We need to update it to the actual storage (e.g. S3) and location (e.g., the S3 key) if applicable.
+        if ($song->path !== $uploadReference->location || $song->storage !== $this->storage->getStorageType()) {
+            $song->update([
+                'path' => $uploadReference->location,
+                'storage' => $this->storage->getStorageType(),
+            ]);
+        }
+
+        return $song;
     }
 
-    private function getUniqueHash(): string
+    private function handleUploadFailure(UploadReference $reference, Throwable|string $error): never
     {
-        return substr(sha1(uniqid()), 0, 6);
+        $this->storage->undoUpload($reference);
+
+        throw SongUploadFailedException::make($error);
     }
 }

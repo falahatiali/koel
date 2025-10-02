@@ -1,22 +1,22 @@
-import { Faker } from '@faker-js/faker'
+import { faker } from '@faker-js/faker'
 
-export default (faker: Faker): Artist => {
+export default (): Artist => {
   return {
     type: 'artists',
-    id: faker.datatype.number({ min: 3 }), // avoid Unknown and Various Artist by default
-    name: faker.name.findName(),
+    id: faker.string.ulid(),
+    name: faker.person.fullName(),
     image: 'foo.jpg',
-    created_at: faker.date.past().toISOString()
+    created_at: faker.date.past().toISOString(),
+    is_external: false,
+    favorite: faker.datatype.boolean(),
   }
 }
 
 export const states: Record<string, Omit<Partial<Artist>, 'type'>> = {
   unknown: {
-    id: 1,
-    name: 'Unknown Artist'
+    name: 'Unknown Artist',
   },
   various: {
-    id: 2,
-    name: 'Various Artists'
-  }
+    name: 'Various Artists',
+  },
 }

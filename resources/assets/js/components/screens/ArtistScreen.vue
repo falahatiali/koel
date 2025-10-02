@@ -1,137 +1,167 @@
 <template>
-  <section v-if="artist" id="artistWrapper">
-    <ScreenHeaderSkeleton v-if="loading" />
+  <ScreenBase>
+    <template #header>
+      <ScreenHeaderSkeleton v-if="loading && !artist" />
 
-    <ScreenHeader v-if="!loading && artist" :layout="songs.length === 0 ? 'collapsed' : headerLayout">
-      {{ artist.name }}
-      <ControlsToggle v-model="showingControls" />
+      <ScreenHeader v-if="artist" :disabled="loading" :layout="songs.length ? headerLayout : 'collapsed'">
+        {{ artist.name }}
 
-      <template #thumbnail>
-        <ArtistThumbnail :entity="artist" />
-      </template>
+        <template #thumbnail>
+          <ArtistThumbnail :entity="artist" />
+        </template>
 
-      <template #meta>
-        <span>{{ pluralize(albumCount, 'album') }}</span>
-        <span>{{ pluralize(songs, 'song') }}</span>
-        <span>{{ duration }}</span>
+        <template #meta>
+          <span class="flex meta-content">
+            <span>{{ pluralize(albumCount, 'album') }}</span>
+            <span>{{ pluralize(songs, 'song') }}</span>
+            <span>{{ duration }}</span>
+          </span>
+        </template>
 
-        <a
-          v-if="allowDownload"
-          class="download"
-          role="button"
-          title="Download all songs by this artist"
-          @click.prevent="download"
-        >
-          Download All
-        </a>
-      </template>
+        <template #controls>
+          <SongListControls
+            v-if="songs.length"
+            :config
+            @filter="applyFilter"
+            @play-all="playAll"
+            @play-selected="playSelected"
+          >
+            <FavoriteButton
+              v-if="artist.favorite"
+              :favorite="artist.favorite"
+              class="px-3.5 py-2"
+              @toggle="toggleFavorite"
+            />
+            <Btn gray @click="requestContextMenu">
+              <Icon :icon="faEllipsis" fixed-width />
+              <span class="sr-only">More Actions</span>
+            </Btn>
+          </SongListControls>
+        </template>
+      </ScreenHeader>
+    </template>
 
-      <template #controls>
-        <SongListControls
-          v-if="songs.length && (!isPhone || showingControls)"
-          @filter="applyFilter"
-          @play-all="playAll"
-          @play-selected="playSelected"
-        />
-      </template>
-    </ScreenHeader>
-
-    <ScreenTabs>
+    <ScreenTabs v-if="artist" class="-m-6" :class="loading && 'pointer-events-none'">
       <template #header>
-        <label :class="{ active: activeTab === 'Songs' }">
-          Songs
-          <input v-model="activeTab" type="radio" name="tab" value="Songs">
-        </label>
-        <label :class="{ active: activeTab === 'Albums' }">
-          Albums
-          <input v-model="activeTab" type="radio" name="tab" value="Albums">
-        </label>
-        <label v-if="useLastfm" :class="{ active: activeTab === 'Info' }">
-          Information
-          <input v-model="activeTab" type="radio" name="tab" value="Info">
-        </label>
+        <nav>
+          <ul>
+            <li :class="activeTab === 'songs' && 'active'">
+              <a :href="url('artists.show', { id: artist.id, tab: 'songs' })">Songs</a>
+            </li>
+            <li :class="activeTab === 'albums' && 'active'">
+              <a :href="url('artists.show', { id: artist.id, tab: 'albums' })">Albums</a>
+            </li>
+            <li v-if="useEncyclopedia" :class="activeTab === 'information' && 'active'">
+              <a :href="url('artists.show', { id: artist.id, tab: 'information' })">Information</a>
+            </li>
+            <li v-if="useTicketmaster" :class="activeTab === 'events' && 'active'">
+              <a :href="url('artists.show', { id: artist.id, tab: 'events' })">Events</a>
+            </li>
+          </ul>
+        </nav>
       </template>
 
-      <div v-show="activeTab === 'Songs'" class="songs-pane">
+      <div v-show="activeTab === 'songs'" class="songs-pane">
         <SongListSkeleton v-if="loading" />
         <SongList
-          v-else
+          v-if="!loading && artist"
           ref="songList"
-          @sort="sort"
           @press:enter="onPressEnter"
-          @scroll-breakpoint="onScrollBreakpoint"
+          @swipe="onSwipe"
         />
       </div>
 
-      <div v-show="activeTab === 'Albums'" class="albums-pane">
-        <ul v-if="albums" v-koel-overflow-fade class="as-list">
-          <li v-for="album in albums" :key="album.id">
-            <AlbumCard :album="album" layout="compact" />
-          </li>
-        </ul>
-        <ul v-else class="as-list">
-          <li v-for="i in 12" :key="i">
-            <AlbumCardSkeleton layout="compact" />
-          </li>
-        </ul>
+      <div v-show="activeTab === 'albums'" class="albums-pane">
+        <GridListView v-koel-overflow-fade view-mode="list">
+          <template v-if="albums">
+            <AlbumCard
+              v-for="album in albums"
+              :key="album.id"
+              :album="album"
+              :show-release-year="true"
+              layout="compact"
+            />
+          </template>
+          <template v-else>
+            <AlbumCardSkeleton v-for="i in 6" :key="i" layout="compact" />
+          </template>
+        </GridListView>
       </div>
 
-      <div v-show="activeTab === 'Info'" v-if="useLastfm && artist" class="info-pane">
+      <div v-if="useEncyclopedia && artist" v-show="activeTab === 'information'" class="info-pane">
         <ArtistInfo :artist="artist" mode="full" />
       </div>
+
+      <div v-if="useTicketmaster && artist" v-show="activeTab === 'events'" class="events-pane">
+        <ArtistEventList :artist="artist" />
+      </div>
     </ScreenTabs>
-  </section>
+  </ScreenBase>
 </template>
 
 <script lang="ts" setup>
-import { computed, defineAsyncComponent, ref, toRef, watch } from 'vue'
-import { eventBus, logger, pluralize } from '@/utils'
-import { albumStore, artistStore, commonStore, songStore } from '@/stores'
-import { downloadService } from '@/services'
-import { useDialogBox, useRouter, useSongList, useThirdPartyServices } from '@/composables'
+import { faEllipsis } from '@fortawesome/free-solid-svg-icons'
+import { computed, ref } from 'vue'
+import { defineAsyncComponent } from '@/utils/helpers'
+import { eventBus } from '@/utils/eventBus'
+import { pluralize } from '@/utils/formatters'
+import { albumStore } from '@/stores/albumStore'
+import { artistStore } from '@/stores/artistStore'
+import { playableStore } from '@/stores/playableStore'
+import { useErrorHandler } from '@/composables/useErrorHandler'
+import { usePlayableList } from '@/composables/usePlayableList'
+import { usePlayableListControls } from '@/composables/usePlayableListControls'
+import { useThirdPartyServices } from '@/composables/useThirdPartyServices'
+import { useRouter } from '@/composables/useRouter'
+import { usePolicies } from '@/composables/usePolicies'
+import { useContextMenu } from '@/composables/useContextMenu'
 
 import ScreenHeader from '@/components/ui/ScreenHeader.vue'
-import ArtistThumbnail from '@/components/ui/AlbumArtistThumbnail.vue'
-import ScreenHeaderSkeleton from '@/components/ui/skeletons/ScreenHeaderSkeleton.vue'
-import SongListSkeleton from '@/components/ui/skeletons/SongListSkeleton.vue'
+import ArtistThumbnail from '@/components/ui/album-artist/AlbumOrArtistThumbnail.vue'
+import ScreenHeaderSkeleton from '@/components/ui/ScreenHeaderSkeleton.vue'
+import SongListSkeleton from '@/components/playable/playable-list/PlayableListSkeleton.vue'
 import ScreenTabs from '@/components/ui/ArtistAlbumScreenTabs.vue'
+import ScreenBase from '@/components/screens/ScreenBase.vue'
+import GridListView from '@/components/ui/GridListView.vue'
+import Btn from '@/components/ui/form/Btn.vue'
 
 const ArtistInfo = defineAsyncComponent(() => import('@/components/artist/ArtistInfo.vue'))
 const AlbumCard = defineAsyncComponent(() => import('@/components/album/AlbumCard.vue'))
-const AlbumCardSkeleton = defineAsyncComponent(() => import('@/components/ui/skeletons/ArtistAlbumCardSkeleton.vue'))
+const ArtistEventList = defineAsyncComponent(() => import('@/components/artist/ArtistEventList.vue'))
+const AlbumCardSkeleton = defineAsyncComponent(() => import('@/components/ui/album-artist/ArtistAlbumCardSkeleton.vue'))
+const FavoriteButton = defineAsyncComponent(() => import('@/components/ui/FavoriteButton.vue'))
+const ArtistContextMenu = defineAsyncComponent(() => import('@/components/artist/ArtistContextMenu.vue'))
 
-type Tab = 'Songs' | 'Albums' | 'Info'
-const activeTab = ref<Tab>('Songs')
+const validTabs = ['songs', 'albums', 'information', 'events'] as const
+type Tab = typeof validTabs[number]
 
-const { showErrorDialog } = useDialogBox()
-const { getRouteParam, go, onScreenActivated } = useRouter()
+const { PlayableListControls: SongListControls, config } = usePlayableListControls('Artist')
+const { useLastfm, useMusicBrainz, useTicketmaster } = useThirdPartyServices()
+const { getRouteParam, go, onScreenActivated, onRouteChanged, url, triggerNotFound } = useRouter()
+const { currentUserCan } = usePolicies()
+const { openContextMenu } = useContextMenu()
 
-const artistId = ref<number>()
+const activeTab = ref<Tab>('songs')
 const artist = ref<Artist>()
 const songs = ref<Song[]>([])
 const loading = ref(false)
-let albums = ref<Album[] | undefined>()
-let info = ref<ArtistInfo | undefined | null>()
+const albums = ref<Album[] | undefined>()
+const editable = ref(false)
 
 const {
-  SongList,
-  SongListControls,
-  ControlsToggle,
+  PlayableList: SongList,
   headerLayout,
-  songList,
-  showingControls,
-  isPhone,
+  playableList: songList,
+  context,
   duration,
-  sort,
   onPressEnter,
   playAll,
   playSelected,
   applyFilter,
-  onScrollBreakpoint
-} = useSongList(songs)
+  onSwipe,
+} = usePlayableList(songs, { type: 'Artist' })
 
-const { useLastfm } = useThirdPartyServices()
-const allowDownload = toRef(commonStore.state, 'allow_download')
+const useEncyclopedia = computed(() => useMusicBrainz.value || useLastfm.value)
 
 const albumCount = computed(() => {
   const albums = new Set()
@@ -139,42 +169,71 @@ const albumCount = computed(() => {
   return albums.size
 })
 
-watch(activeTab, async tab => {
-  if (tab === 'Albums' && !albums.value) {
-    albums.value = await albumStore.fetchForArtist(artist.value!)
-  }
-})
+const toggleFavorite = () => artistStore.toggleFavorite(artist.value!)
 
-watch(artistId, async id => {
-  if (!id || loading.value) return
+const fetchScreenData = async () => {
+  if (loading.value) {
+    return
+  }
+
+  const id = getRouteParam('id')
+  const tabParam = getRouteParam<Tab>('tab') || 'songs'
+  activeTab.value = validTabs.includes(tabParam) ? tabParam : 'songs'
 
   loading.value = true
 
   try {
     [artist.value, songs.value] = await Promise.all([
       artistStore.resolve(id),
-      songStore.fetchForArtist(id)
+      playableStore.fetchSongsForArtist(id),
     ])
-  } catch (error) {
-    logger.error(error)
-    showErrorDialog('Failed to load artist. Please try again.', 'Error')
+
+    if (!artist.value) {
+      triggerNotFound()
+      return
+    }
+
+    if (activeTab.value === 'albums') {
+      albums.value = await albumStore.fetchForArtist(artist.value)
+    }
+
+    context.entity = artist.value
+    editable.value = await currentUserCan.editArtist(artist.value!)
+  } catch (error: unknown) {
+    if (error?.status === 404) {
+      triggerNotFound()
+      return
+    }
+
+    useErrorHandler('dialog').handleHttpError(error)
   } finally {
     loading.value = false
   }
+}
+
+onScreenActivated('Artist', () => fetchScreenData())
+onRouteChanged(route => route.name === 'artists.show' && fetchScreenData())
+
+const requestContextMenu = (event: MouseEvent) => openContextMenu<'ARTIST'>(ArtistContextMenu, event, {
+  artist: artist.value!,
 })
 
-const download = () => downloadService.fromArtist(artist.value!)
-
-onScreenActivated('Artist', () => (artistId.value = parseInt(getRouteParam('id')!)))
-
-// if the current artist has been deleted, go back to the list
-eventBus.on('SONGS_UPDATED', () => artistStore.byId(artist.value!.id) || go('artists'))
+eventBus.on('SONGS_UPDATED', result => {
+  // After songs are updated, check if the current artist still exists.
+  // If not, redirect to the artist index screen.
+  if (result.removed.artist_ids.includes(artist.value!.id)) {
+    go(url('artists.index'))
+  }
+})
 </script>
 
-<style lang="scss" scoped>
-@import "#/partials/_mixins.scss";
+<style lang="postcss" scoped>
+.meta-content > *:not(:first-child)::before {
+  content: '•';
+  margin: 0 0.25em;
+}
 
-#artistWrapper {
-  @include artist-album-info-wrapper();
+.screen-header :deep(.play-icon) {
+  @apply scale-[2];
 }
 </style>

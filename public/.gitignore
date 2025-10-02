@@ -5,12 +5,12 @@ fonts
 img/*
 !img/icon.png
 !img/favicon.ico
-!img/covers
-img/covers/*
-!img/covers/.gitkeep
-!img/artists
-img/artists/*
-!img/artists/.gitkeep
+
+!img/storage
+img/storage/*
+!img/storage/.gitkeep
+
+vendor/*
 
 images
 js
@@ -20,3 +20,4 @@ hot
 mix-manifest.json
 .user.ini
 build
+.htaccess

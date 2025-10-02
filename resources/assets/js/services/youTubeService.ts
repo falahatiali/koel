@@ -1,5 +1,6 @@
-import { cache, http } from '@/services'
-import { eventBus } from '@/utils'
+import { cache } from '@/services/cache'
+import { http } from '@/services/http'
+import { eventBus } from '@/utils/eventBus'
 
 interface YouTubeSearchResult {
   nextPageToken: string
@@ -8,18 +9,18 @@ interface YouTubeSearchResult {
 
 export const youTubeService = {
   searchVideosBySong: async (song: Song, nextPageToken: string) => {
-    return await cache.remember<YouTubeSearchResult>(
+    return await cache.remember(
       ['youtube.search', song.id, nextPageToken],
       async () => await http.get<YouTubeSearchResult>(
-        `youtube/search/song/${song.id}?pageToken=${nextPageToken}`
-      )
+        `youtube/search/song/${song.id}?pageToken=${nextPageToken}`,
+      ),
     )
   },
 
   play: (video: YouTubeVideo): void => {
     eventBus.emit('PLAY_YOUTUBE_VIDEO', {
       id: video.id.videoId,
-      title: video.snippet.title
+      title: video.snippet.title,
     })
-  }
+  },
 }

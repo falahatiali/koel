@@ -1,34 +1,46 @@
-import { preferenceStore as preferences } from '@/stores'
-import { equalizerPresets as presets } from '@/config'
+import { preferenceStore as preferences } from '@/stores/preferenceStore'
+import { equalizerPresets as presets } from '@/config/audio'
 
 export const equalizerStore = {
-  getPresetById (id: number) {
-    return presets.find(preset => preset.id === id)
-  },
+  getPresetByName: (name: string) => presets.find(preset => preset.name === name),
 
   /**
    * Get the current equalizer config.
    */
   getConfig () {
-    if (preferences.equalizer.id === -1) {
+    let config: EqualizerPreset | undefined
+
+    if (this.isCustom(preferences.equalizer)) {
       return preferences.equalizer
     }
 
-    // If the user chose a preset (instead of customizing one), just return it.
-    return this.getPresetById(preferences.equalizer.id) || presets[0]
+    if (preferences.equalizer.name !== null) {
+      config = this.getPresetByName(preferences.equalizer.name)
+    }
+
+    return config || presets[0]
+  },
+
+  isCustom (preset: any) {
+    return typeof preset === 'object'
+      && preset !== null
+      && preset.name === null
+      && typeof preset.preamp === 'number'
+      && Array.isArray(preset.gains)
+      && preset.gains.length === 10
+      && preset.gains.every((gain: any) => typeof gain === 'number')
   },
 
   /**
    * Save the current equalizer config.
    */
-  saveConfig (id: number, preamp: number, gains: number[]) {
-    const preset = this.getPresetById(id)
+  saveConfig (name: EqualizerPreset['name'] | null, preamp: number, gains: number[]) {
+    const preset = name ? this.getPresetByName(name) : null
 
     preferences.equalizer = preset || {
       preamp,
       gains,
-      id: -1,
-      name: 'Custom'
+      name: null,
     }
-  }
+  },
 }

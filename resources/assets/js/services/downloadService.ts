@@ -1,10 +1,10 @@
-import { favoriteStore } from '@/stores'
-import { authService } from '@/services'
-import { arrayify } from '@/utils'
+import { authService } from '@/services/authService'
+import { playableStore } from '@/stores/playableStore'
+import { arrayify } from '@/utils/helpers'
 
 export const downloadService = {
-  fromSongs (songs: Song | Song[]) {
-    const query = arrayify(songs).reduce((q, song) => `songs[]=${song.id}&${q}`, '')
+  fromPlayables (playables: MaybeArray<Playable>) {
+    const query = arrayify(playables).reduce((q, playable) => `songs[]=${playable.id}&${q}`, '')
     this.trigger(`songs?${query}`)
   },
 
@@ -21,7 +21,7 @@ export const downloadService = {
   },
 
   fromFavorites () {
-    if (favoriteStore.state.songs.length) {
+    if (playableStore.state.favorites.length) {
       this.trigger('favorites')
     }
   },
@@ -29,16 +29,13 @@ export const downloadService = {
   /**
    * Build a download link using a segment and trigger it.
    *
-   * @param  {string} uri The uri segment, corresponding to the song(s),
+   * @param  {string} uri The uri segment, corresponding to the playable(s),
    *                      artist, playlist, or album.
    */
   trigger: (uri: string) => {
     const sep = uri.includes('?') ? '&' : '?'
     const url = `${window.BASE_URL}download/${uri}${sep}t=${authService.getAudioToken()}`
 
-    const iframe = document.createElement('iframe')
-    iframe.style.display = 'none'
-    iframe.setAttribute('src', url)
-    document.body.appendChild(iframe)
-  }
+    open(url)
+  },
 }

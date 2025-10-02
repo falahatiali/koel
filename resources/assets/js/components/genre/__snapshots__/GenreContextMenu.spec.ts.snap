@@ -1,0 +1,18 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`genreContextMenu.vue > renders 1`] = `
+<ul>
+  <li class="">
+    <!--v-if-->Play
+    <!--v-if-->
+  </li>
+  <li class="">
+    <!--v-if-->Shuffle
+    <!--v-if-->
+  </li>
+  <li class="">
+    <!--v-if-->Add to Queue
+    <!--v-if-->
+  </li>
+</ul>
+`;

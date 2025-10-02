@@ -1,18 +1,14 @@
-import isMobile from 'ismobilejs'
-import { expect, it } from 'vitest'
+import { describe, expect, it } from 'vitest'
 import { screen } from '@testing-library/vue'
-import UnitTestCase from '@/__tests__/UnitTestCase'
-import ScreenControlsToggle from './ScreenControlsToggle.vue'
+import { createHarness } from '@/__tests__/TestHarness'
+import Component from './ScreenControlsToggle.vue'
 
-new class extends UnitTestCase {
-  protected test () {
-    it('renders and emits an event on mobile', async () => {
-      isMobile.phone = true
-      const { emitted } = this.render(ScreenControlsToggle)
+describe('screenControlsToggle.vue', () => {
+  const h = createHarness()
 
-      await this.user.click(screen.getByRole('checkbox'))
-
-      expect(emitted()['update:modelValue']).toBeTruthy()
-    })
-  }
-}
+  it('renders and emits an event', async () => {
+    const { emitted } = h.render(Component)
+    await h.user.click(screen.getByRole('checkbox'))
+    expect(emitted()['update:modelValue']).toBeTruthy()
+  })
+})

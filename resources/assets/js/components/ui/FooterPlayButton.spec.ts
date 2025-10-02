@@ -1,129 +1,106 @@
-import factory from '@/__tests__/factory'
-import { ref } from 'vue'
-import { expect, it } from 'vitest'
-import UnitTestCase from '@/__tests__/UnitTestCase'
-import { playbackService } from '@/services'
 import { screen, waitFor } from '@testing-library/vue'
-import { CurrentSongKey } from '@/symbols'
-import { commonStore, favoriteStore, queueStore, recentlyPlayedStore, songStore } from '@/stores'
-import FooterPlayButton from './FooterPlayButton.vue'
+import { ref } from 'vue'
+import { describe, expect, it } from 'vitest'
+import { createHarness } from '@/__tests__/TestHarness'
+import { playbackService } from '@/services/QueuePlaybackService'
+import { CurrentStreamableKey } from '@/symbols'
+import { commonStore } from '@/stores/commonStore'
+import { playableStore } from '@/stores/playableStore'
+import { recentlyPlayedStore } from '@/stores/recentlyPlayedStore'
+import Router from '@/router'
+import Component from './FooterPlayButton.vue'
 
-new class extends UnitTestCase {
-  private renderComponent (currentSong: Song | null = null) {
-    return this.render(FooterPlayButton, {
+describe('footerPlayButton.vue', () => {
+  const h = createHarness()
+
+  const renderComponent = (currentPlayable: Playable | null = null) => {
+    return h.render(Component, {
       global: {
         provide: {
-          [<symbol>CurrentSongKey]: ref(currentSong)
-        }
-      }
+          [<symbol>CurrentStreamableKey]: ref(currentPlayable),
+        },
+      },
     })
   }
 
-  protected test () {
-    it('toggles the playback of current song', async () => {
-      const toggleMock = this.mock(playbackService, 'toggle')
-      this.renderComponent(factory<Song>('song'))
+  it('toggles the playback of current item', async () => {
+    h.createAudioPlayer()
 
-      await this.user.click(screen.getByRole('button'))
+    const toggleMock = h.mock(playbackService, 'toggle')
+    renderComponent(h.factory('song'))
 
-      expect(toggleMock).toHaveBeenCalled()
+    await h.user.click(screen.getByRole('button'))
+
+    expect(toggleMock).toHaveBeenCalled()
+  })
+
+  it.each<[string, MethodOf<typeof playableStore>, Album['id'] | Artist['id'] | Playlist['id']]>([
+    ['/albums/01K610ZFJGVTCVGZ0505464ZGR', 'fetchSongsForAlbum', '01K610ZFJGVTCVGZ0505464ZGR'],
+    ['/artists/01K610ZFJGVTCVGZ0505464ZGR', 'fetchSongsForArtist', '01K610ZFJGVTCVGZ0505464ZGR'],
+    ['/playlists/73a36cfd-4afd-48ae-b031-ae5488858375', 'fetchForPlaylist', '73a36cfd-4afd-48ae-b031-ae5488858375'],
+  ])('initiates playback for %s', async (hash, fetchMethod, id) => {
+    h.createAudioPlayer()
+
+    commonStore.state.song_count = 10
+    const songs = h.factory('song', 3)
+    const fetchMock = h.mock(playableStore, fetchMethod).mockResolvedValue(songs)
+    const playMock = h.mock(playbackService, 'queueAndPlay')
+    const goMock = h.mock(Router, 'go')
+
+    h.visit(hash)
+    renderComponent()
+
+    await h.user.click(screen.getByRole('button'))
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith(id)
+      expect(playMock).toHaveBeenCalledWith(songs)
+      expect(goMock).toHaveBeenCalledWith('/#/queue')
     })
+  })
 
-    it.each<[ScreenName, MethodOf<typeof songStore>]>([
-      ['Album', 'fetchForAlbum'],
-      ['Artist', 'fetchForArtist'],
-      ['Playlist', 'fetchForPlaylist']
-    ])('initiates playback for %s screen', async (screenName, fetchMethod) => {
-      commonStore.state.song_count = 10
-      const songs = factory<Song>('song', 3)
-      const fetchMock = this.mock(songStore, fetchMethod).mockResolvedValue(songs)
-      const playMock = this.mock(playbackService, 'queueAndPlay')
-      const goMock = this.mock(this.router, 'go')
+  // @ts-ignore
+  it.each<[
+    string,
+      typeof playableStore | typeof recentlyPlayedStore,
+      MethodOf<typeof playableStore | typeof recentlyPlayedStore>,
+  ]>([
+    ['/favorites', playableStore, 'fetchFavorites'],
+    ['/recently-played', recentlyPlayedStore, 'fetch'],
+  ])('initiates playback for %s', async (hash, store, fetchMethod) => {
+    h.createAudioPlayer()
 
-      await this.router.activateRoute({
-        screen: screenName,
-        path: '_'
-      }, { id: '42' })
+    commonStore.state.song_count = 10
+    const songs = h.factory('song', 3)
+    const fetchMock = h.mock(store, fetchMethod).mockResolvedValue(songs)
+    const playMock = h.mock(playbackService, 'queueAndPlay')
+    const goMock = h.mock(Router, 'go')
 
-      this.renderComponent()
+    h.visit(hash)
+    renderComponent()
 
-      await this.user.click(screen.getByRole('button'))
-      await waitFor(() => {
-        expect(fetchMock).toHaveBeenCalledWith(42)
-        expect(playMock).toHaveBeenCalledWith(songs)
-        expect(goMock).toHaveBeenCalledWith('queue')
-      })
+    await h.user.click(screen.getByRole('button'))
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalled()
+      expect(playMock).toHaveBeenCalledWith(songs)
+      expect(goMock).toHaveBeenCalledWith('/#/queue')
     })
+  })
 
-    it.each<[
-      ScreenName,
-        typeof favoriteStore | typeof recentlyPlayedStore,
-      MethodOf<typeof favoriteStore | typeof recentlyPlayedStore>
-    ]>([
-      ['Favorites', favoriteStore, 'fetch'],
-      ['RecentlyPlayed', recentlyPlayedStore, 'fetch']
-    ])('initiates playback for %s screen', async (screenName, store, fetchMethod) => {
-      commonStore.state.song_count = 10
-      const songs = factory<Song>('song', 3)
-      const fetchMock = this.mock(store, fetchMethod).mockResolvedValue(songs)
-      const playMock = this.mock(playbackService, 'queueAndPlay')
-      const goMock = this.mock(this.router, 'go')
+  it('does nothing if there are no songs', async () => {
+    h.createAudioPlayer()
 
-      await this.router.activateRoute({
-        screen: screenName,
-        path: '_'
-      })
+    commonStore.state.song_count = 0
 
-      this.renderComponent()
+    const playMock = h.mock(playbackService, 'queueAndPlay')
+    const goMock = h.mock(Router, 'go')
 
-      await this.user.click(screen.getByRole('button'))
-      await waitFor(() => {
-        expect(fetchMock).toHaveBeenCalled()
-        expect(playMock).toHaveBeenCalledWith(songs)
-        expect(goMock).toHaveBeenCalledWith('queue')
-      })
+    h.visit('songs')
+    renderComponent()
+
+    await h.user.click(screen.getByRole('button'))
+    await waitFor(() => {
+      expect(playMock).not.toHaveBeenCalled()
+      expect(goMock).not.toHaveBeenCalled()
     })
-
-    it.each<[ScreenName]>([['Queue'], ['Songs'], ['Albums']])('initiates playback %s screen', async screenName => {
-      commonStore.state.song_count = 10
-      const songs = factory<Song>('song', 3)
-      const fetchMock = this.mock(queueStore, 'fetchRandom').mockResolvedValue(songs)
-      const playMock = this.mock(playbackService, 'queueAndPlay')
-      const goMock = this.mock(this.router, 'go')
-
-      await this.router.activateRoute({
-        screen: screenName,
-        path: '_'
-      })
-
-      this.renderComponent()
-
-      await this.user.click(screen.getByRole('button'))
-      await waitFor(() => {
-        expect(fetchMock).toHaveBeenCalled()
-        expect(playMock).toHaveBeenCalledWith(songs)
-        expect(goMock).toHaveBeenCalledWith('queue')
-      })
-    })
-
-    it('does nothing if there are no songs', async () => {
-      commonStore.state.song_count = 0
-
-      const playMock = this.mock(playbackService, 'queueAndPlay')
-      const goMock = this.mock(this.router, 'go')
-
-      await this.router.activateRoute({
-        screen: 'Songs',
-        path: '_'
-      })
-
-      this.renderComponent()
-
-      await this.user.click(screen.getByRole('button'))
-      await waitFor(() => {
-        expect(playMock).not.toHaveBeenCalled()
-        expect(goMock).not.toHaveBeenCalled()
-      })
-    })
-  }
-}
+  })
+})

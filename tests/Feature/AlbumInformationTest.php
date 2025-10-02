@@ -3,38 +3,25 @@
 namespace Tests\Feature;
 
 use App\Models\Album;
-use App\Services\MediaInformationService;
-use App\Values\AlbumInformation;
+use App\Services\EncyclopediaService;
+use App\Values\Album\AlbumInformation;
 use Mockery;
+use PHPUnit\Framework\Attributes\Test;
+use Tests\TestCase;
 
 class AlbumInformationTest extends TestCase
 {
-    private const JSON_STRUCTURE = [
-        'url',
-        'cover',
-        'wiki' => [
-            'summary',
-            'full',
-        ],
-        'tracks' => [
-            '*' => [
-                'title',
-                'length',
-                'url',
-            ],
-        ],
-    ];
-
-    public function testGet(): void
+    #[Test]
+    public function getInformation(): void
     {
-        config(['koel.lastfm.key' => 'foo']);
-        config(['koel.lastfm.secret' => 'geheim']);
+        config(['koel.services.lastfm.key' => 'foo']);
+        config(['koel.services.lastfm.secret' => 'geheim']);
 
         /** @var Album $album */
         $album = Album::factory()->create();
 
-        $lastfm = self::mock(MediaInformationService::class);
-        $lastfm->shouldReceive('getAlbumInformation')
+        $lastfm = $this->mock(EncyclopediaService::class);
+        $lastfm->expects('getAlbumInformation')
             ->with(Mockery::on(static fn (Album $a) => $a->is($album)))
             ->andReturn(AlbumInformation::make(
                 url: 'https://lastfm.com/album/foo',
@@ -57,19 +44,17 @@ class AlbumInformationTest extends TestCase
                 ]
             ));
 
-        $this->getAs('api/albums/' . $album->id . '/information')
-            ->assertJsonStructure(self::JSON_STRUCTURE);
+        $this->getAs("api/albums/{$album->id}/information")
+            ->assertJsonStructure(AlbumInformation::JSON_STRUCTURE);
     }
 
-    public function testGetWithoutLastfmStillReturnsValidStructure(): void
+    #[Test]
+    public function getWithoutLastfmStillReturnsValidStructure(): void
     {
-        config(['koel.lastfm.key' => null]);
-        config(['koel.lastfm.secret' => null]);
+        config(['koel.services.lastfm.key' => null]);
+        config(['koel.services.lastfm.secret' => null]);
 
-        /** @var Album $album */
-        $album = Album::factory()->create();
-
-        $this->getAs('api/albums/' . $album->id . '/information')
-            ->assertJsonStructure(self::JSON_STRUCTURE);
+        $this->getAs('api/albums/' . Album::factory()->create()->id . '/information')
+            ->assertJsonStructure(AlbumInformation::JSON_STRUCTURE);
     }
 }

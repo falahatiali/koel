@@ -1,37 +1,57 @@
 <template>
-  <section id="vizContainer" :class="{ fullscreen: isFullscreen }" @dblclick="toggleFullscreen">
-    <div class="artifacts">
-      <div v-if="selectedVisualizer" class="credits">
-        <h3>{{ selectedVisualizer.name }}</h3>
-        <p v-if="selectedVisualizer.credits" class="text-secondary">
+  <section id="vizContainer" ref="container" :class="{ fullscreen: isFullscreen }" @dblclick.prevent="toggleFullscreen">
+    <div
+      class="absolute z-[1] w-full h-full top-0 left-0 opacity-0 transition-opacity
+      duration-300 ease-in-out hover:opacity-100"
+    >
+      <div
+        v-if="selectedVisualizer"
+        class="absolute bottom-8 left-8 px-6 py-4 bg-black/30 rounded-md"
+      >
+        <h3 class="text-lg mb-2">{{ selectedVisualizer.name }}</h3>
+        <p v-if="selectedVisualizer.credits" class="text-k-text-secondary">
           by {{ selectedVisualizer.credits.author }}
-          <a :href="selectedVisualizer.credits.url" target="_blank">
+          <a :href="selectedVisualizer.credits.url" class="ml-2" target="_blank">
             <Icon :icon="faUpRightFromSquare" />
           </a>
         </p>
       </div>
 
-      <select v-model="selectedId">
-        <option disabled value="-1">Pick a visualizer</option>
-        <option v-for="v in visualizers" :key="v.id" :value="v.id">{{ v.name }}</option>
-      </select>
+      <div class="absolute bottom-8 right-8 border border-white/30 rounded-md">
+        <SelectBox v-model="selectedId" class="!bg-black/20 !text-white block">
+          <option disabled value="-1">Pick a visualizer</option>
+          <option v-for="v in visualizers" :key="v.id" :value="v.id">{{ v.name }}</option>
+        </SelectBox>
+      </div>
     </div>
-    <div ref="el" class="viz" />
+
+    <div ref="el" class="viz h-full w-full absolute z-0" />
   </section>
 </template>
 
 <script lang="ts" setup>
 import { faUpRightFromSquare } from '@fortawesome/free-solid-svg-icons'
 import { nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
-import { logger } from '@/utils'
-import { preferenceStore as preferences, visualizerStore } from '@/stores'
+import { useFullscreen } from '@vueuse/core'
+import { logger } from '@/utils/logger'
+import { preferenceStore as preferences } from '@/stores/preferenceStore'
+import { visualizerStore } from '@/stores/visualizerStore'
+
+import SelectBox from '@/components/ui/form/SelectBox.vue'
 
 const visualizers = visualizerStore.all
 let destroyVisualizer: () => void
 
-const el = ref<HTMLElement>()
+const el = ref<HTMLElement | null>(null)
+const container = ref<HTMLElement | null>(null)
 const selectedId = ref<Visualizer['id']>()
-const isFullscreen = ref(false)
+
+const { isFullscreen, toggle: toggleFullscreen } = useFullscreen(container)
+
+const freeUp = () => {
+  destroyVisualizer?.()
+  el.value && (el.value.innerHTML = '')
+}
 
 const render = async (viz: Visualizer) => {
   if (!el.value) {
@@ -43,9 +63,9 @@ const render = async (viz: Visualizer) => {
 
   try {
     destroyVisualizer = await viz.init(el.value!)
-  } catch (e) {
+  } catch (error: unknown) {
     // in e.g., DOM testing, the call will fail due to the lack of proper API support
-    logger.warn('Failed to initialize visualizer', e)
+    logger.warn('Failed to initialize visualizer', error)
   }
 }
 
@@ -57,11 +77,6 @@ watch(selectedId, id => {
   render(selectedVisualizer.value)
 })
 
-const toggleFullscreen = () => {
-  isFullscreen.value ? document.exitFullscreen() : el.value?.requestFullscreen()
-  isFullscreen.value = !isFullscreen.value
-}
-
 onMounted(() => {
   selectedId.value = preferences.visualizer || 'default'
 
@@ -70,79 +85,16 @@ onMounted(() => {
   }
 })
 
-const freeUp = () => {
-  destroyVisualizer?.()
-  el.value && (el.value.innerHTML = '')
-}
-
 onBeforeUnmount(() => freeUp())
 </script>
 
-<style lang="scss">
-#vizContainer {
-  .viz {
-    height: 100%;
-    width: 100%;
-    position: absolute;
-    z-index: 0;
+<style lang="postcss" scoped>
+:deep(canvas) {
+  @apply transition-opacity duration-300 h-full w-full;
+}
 
-    canvas {
-      transition: opacity 0.3s;
-      height: 100%;
-      width: 100%;
-    }
-  }
-
-  .artifacts {
-    position: absolute;
-    z-index: 1;
-    height: 100%;
-    width: 100%;
-    top: 0;
-    left: 0;
-    opacity: 0;
-    padding: 24px;
-    transition: opacity 0.3s ease-in-out;
-  }
-
-  &:hover {
-    .artifacts {
-      opacity: 1;
-    }
-  }
-
-  .credits {
-    padding: 14px 28px 14px 14px;
-    background: rgba(0, 0, 0, .5);
-    width: fit-content;
-    position: absolute;
-    bottom: 24px;
-
-    h3 {
-      font-size: 1.2rem;
-      margin-bottom: .3rem;
-    }
-
-    a {
-      margin-left: .5rem;
-      display: inline-block;
-      vertical-align: middle;
-    }
-  }
-
-  select {
-    position: absolute;
-    bottom: 24px;
-    right: 24px;
-  }
-
-  &.fullscreen {
-    // :fullscreen pseudo support is kind of buggy, so we use a class instead.
-    background: var(--color-bg-primary);
-
-    .close {
-      opacity: 0 !important;
-    }
-  }
+.fullscreen {
+  /* :fullscreen pseudo support is kind of buggy, so we use a class instead */
+  @apply bg-k-bg-primary;
 }
 </style>

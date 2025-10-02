@@ -2,19 +2,19 @@
 
 namespace App\Rules;
 
-use App\Values\SmartPlaylistRuleGroupCollection;
-use Illuminate\Contracts\Validation\Rule;
+use App\Values\SmartPlaylist\SmartPlaylistRuleGroupCollection;
+use Closure;
+use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Support\Arr;
 
-class ValidSmartPlaylistRulePayload implements Rule
+class ValidSmartPlaylistRulePayload implements ValidationRule
 {
-    public function passes($attribute, $value): bool
+    public function validate(string $attribute, mixed $value, Closure $fail): void
     {
-        return (bool) attempt(static fn () => SmartPlaylistRuleGroupCollection::create(Arr::wrap($value)));
-    }
+        $passes = (bool) rescue(static fn () => SmartPlaylistRuleGroupCollection::create(Arr::wrap($value)));
 
-    public function message(): string
-    {
-        return 'Invalid smart playlist rules';
+        if (!$passes) {
+            $fail('Invalid smart playlist rules');
+        }
     }
 }

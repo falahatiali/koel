@@ -1,20 +1,22 @@
-import { expect, it } from 'vitest'
-import { preferenceStore } from '@/stores'
-import UnitTestCase from '@/__tests__/UnitTestCase'
+import { describe, expect, it } from 'vitest'
 import { screen } from '@testing-library/vue'
-import { playbackService } from '@/services'
-import RepeatModeSwitch from './RepeatModeSwitch.vue'
+import { createHarness } from '@/__tests__/TestHarness'
+import { preferenceStore } from '@/stores/preferenceStore'
+import { playbackService } from '@/services/QueuePlaybackService'
+import Component from './RepeatModeSwitch.vue'
 
-new class extends UnitTestCase {
-  protected test () {
-    it('changes mode', async () => {
-      const mock = this.mock(playbackService, 'changeRepeatMode')
-      preferenceStore.state.repeatMode = 'NO_REPEAT'
-      this.render(RepeatModeSwitch)
+describe('repeatModeSwitch.vue', () => {
+  const h = createHarness()
 
-      await this.user.click(screen.getByRole('button'))
+  it('changes mode', async () => {
+    h.createAudioPlayer()
 
-      expect(mock).toHaveBeenCalledOnce()
-    })
-  }
-}
+    const mock = h.mock(playbackService, 'rotateRepeatMode')
+    preferenceStore.state.repeat_mode = 'NO_REPEAT'
+    h.render(Component)
+
+    await h.user.click(screen.getByRole('button'))
+
+    expect(mock).toHaveBeenCalledOnce()
+  })
+})

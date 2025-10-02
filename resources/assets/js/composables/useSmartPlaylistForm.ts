@@ -1,32 +1,39 @@
 import { ref } from 'vue'
-import { playlistStore } from '@/stores'
+import { playlistStore } from '@/stores/playlistStore'
 
-import Btn from '@/components/ui/Btn.vue'
-import FormBase from '@/components/playlist/smart-playlist/SmartPlaylistFormBase.vue'
+import Btn from '@/components/ui/form/Btn.vue'
 import RuleGroup from '@/components/playlist/smart-playlist/SmartPlaylistRuleGroup.vue'
 import SoundBars from '@/components/ui/SoundBars.vue'
 
+type SmartPlaylistFormTab = 'details' | 'rules'
+
 export const useSmartPlaylistForm = (initialRuleGroups: SmartPlaylistRuleGroup[] = []) => {
+  const currentTab = ref<SmartPlaylistFormTab>('details')
+  const activateTab = (tab: SmartPlaylistFormTab) => currentTab.value = tab
+  const isTabActive = (tab: SmartPlaylistFormTab) => currentTab.value === tab
+
   const collectedRuleGroups = ref<SmartPlaylistRuleGroup[]>(initialRuleGroups)
 
   const addGroup = () => collectedRuleGroups.value.push(playlistStore.createEmptySmartPlaylistRuleGroup())
 
   const onGroupChanged = (data: SmartPlaylistRuleGroup) => {
-    const changedGroup = Object.assign(collectedRuleGroups.value.find(g => g.id === data.id)!, data)
+    const changedGroup = Object.assign(collectedRuleGroups.value.find(({ id }) => id === data.id)!, data)
 
-    // Remove empty group
+    // Remove empty groups
     if (changedGroup.rules.length === 0) {
-      collectedRuleGroups.value = collectedRuleGroups.value.filter(group => group.id !== changedGroup.id)
+      collectedRuleGroups.value = collectedRuleGroups.value.filter(({ id }) => id !== changedGroup.id)
     }
   }
 
   return {
     Btn,
-    FormBase,
     RuleGroup,
     SoundBars,
+    currentTab,
+    activateTab,
+    isTabActive,
     collectedRuleGroups,
     addGroup,
-    onGroupChanged
+    onGroupChanged,
   }
 }

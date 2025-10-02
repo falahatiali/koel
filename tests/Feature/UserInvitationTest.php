@@ -2,80 +2,104 @@
 
 namespace Tests\Feature;
 
+use App\Http\Resources\UserProspectResource;
 use App\Mail\UserInvite;
 use App\Models\User;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Str;
-use Mail;
+use PHPUnit\Framework\Attributes\Test;
+use Tests\TestCase;
+
+use function Tests\create_admin;
+use function Tests\create_manager;
 
 class UserInvitationTest extends TestCase
 {
-    private const JSON_STRUCTURE = ['id', 'name', 'email', 'is_admin'];
-
-    public function testInvite(): void
+    #[Test]
+    public function invite(): void
     {
         Mail::fake();
 
-        /** @var User $admin */
-        $admin = User::factory()->admin()->create();
-
         $this->postAs('api/invitations', [
             'emails' => ['foo@bar.io', 'bar@baz.ai'],
-            'is_admin' => true,
-        ], $admin)
+            'role' => 'admin',
+        ], create_admin())
             ->assertSuccessful()
-            ->assertJsonStructure(['*' => self::JSON_STRUCTURE]);
+            ->assertJsonStructure([0 => UserProspectResource::JSON_STRUCTURE]);
 
         Mail::assertQueued(UserInvite::class, 2);
     }
 
-    public function testNonAdminCannotInvite(): void
+    #[Test]
+    public function preventRoleEscalation(): void
+    {
+        $this->postAs('api/invitations', [
+            'emails' => ['foo@bar.io', 'bar@baz.ai'],
+            'role' => 'admin',
+        ], create_manager())
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors('role');
+    }
+
+    #[Test]
+    public function cannotInviteNonAvailableRole(): void
+    {
+        $this->postAs('api/invitations', [
+            'emails' => ['foo@bar.io', 'bar@baz.ai'],
+            'role' => 'manager',
+        ], create_admin())
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors('role');
+    }
+
+    #[Test]
+    public function nonAdminCannotInvite(): void
     {
         Mail::fake();
 
-        /** @var User $admin */
-        $admin = User::factory()->create();
-
         $this->postAs('api/invitations', [
             'emails' => ['foo@bar.io', 'bar@baz.ai'],
-        ], $admin)
+            'role' => 'user',
+        ])
             ->assertForbidden();
 
         Mail::assertNothingQueued();
     }
 
-    public function testGetProspect(): void
+    #[Test]
+    public function getProspect(): void
     {
         $prospect = self::createProspect();
 
         $this->get("api/invitations?token=$prospect->invitation_token")
             ->assertSuccessful()
-            ->assertJsonStructure(self::JSON_STRUCTURE);
+            ->assertJsonStructure(UserProspectResource::JSON_STRUCTURE);
     }
 
-    public function testRevoke(): void
+    #[Test]
+    public function revoke(): void
     {
-        /** @var User $admin */
-        $admin = User::factory()->admin()->create();
-
         $prospect = self::createProspect();
 
-        $this->deleteAs('api/invitations', ['email' => $prospect->email], $admin)
+        $this->deleteAs('api/invitations', ['email' => $prospect->email], create_admin())
             ->assertSuccessful();
 
-        self::assertModelMissing($prospect);
+        $this->assertModelMissing($prospect);
     }
 
-    public function testNonAdminCannotRevoke(): void
+    #[Test]
+    public function nonAdminCannotRevoke(): void
     {
         $prospect = self::createProspect();
 
         $this->deleteAs('api/invitations', ['email' => $prospect->email])
             ->assertForbidden();
 
-        self::assertModelExists($prospect);
+        $this->assertModelExists($prospect);
     }
 
-    public function testAccept(): void
+    #[Test]
+    public function accept(): void
     {
         $prospect = self::createProspect();
 
@@ -94,10 +118,7 @@ class UserInvitationTest extends TestCase
 
     private static function createProspect(): User
     {
-        /** @var User $admin */
-        $admin = User::factory()->admin()->create();
-
-        return User::factory()->for($admin, 'invitedBy')->create([
+        return User::factory()->for(create_admin(), 'invitedBy')->create([
             'invitation_token' => Str::uuid()->toString(),
             'invited_at' => now(),
         ]);

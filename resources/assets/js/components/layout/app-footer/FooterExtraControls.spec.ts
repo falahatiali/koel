@@ -1,35 +1,35 @@
-import { expect, it } from 'vitest'
-import UnitTestCase from '@/__tests__/UnitTestCase'
+import { describe, expect, it } from 'vitest'
 import { screen } from '@testing-library/vue'
-import { eventBus } from '@/utils'
-import FooterExtraControls from './FooterExtraControls.vue'
+import { createHarness } from '@/__tests__/TestHarness'
+import { eventBus } from '@/utils/eventBus'
+import Component from './FooterExtraControls.vue'
 
-new class extends UnitTestCase {
-  private renderComponent () {
-    return this.render(FooterExtraControls, {
+describe('footerExtraControls.vue', () => {
+  const h = createHarness()
+
+  const renderComponent = () => {
+    return h.render(Component, {
       global: {
         stubs: {
-          Equalizer: this.stub('Equalizer'),
-          Volume: this.stub('Volume')
-        }
-      }
+          Equalizer: h.stub('Equalizer'),
+          Volume: h.stub('Volume'),
+        },
+      },
     })
   }
 
-  protected test () {
-    it('renders', () => {
-      this.setReadOnlyProperty(document, 'fullscreenEnabled', undefined)
-      expect(this.renderComponent().html()).toMatchSnapshot()
-    })
+  it('renders', () => {
+    h.setReadOnlyProperty(document, 'fullscreenEnabled', undefined)
+    expect(renderComponent().html()).toMatchSnapshot()
+  })
 
-    it('toggles fullscreen mode', async () => {
-      this.setReadOnlyProperty(document, 'fullscreenEnabled', true)
-      this.renderComponent()
-      const emitMock = this.mock(eventBus, 'emit')
+  it('toggles fullscreen mode', async () => {
+    h.setReadOnlyProperty(document, 'fullscreenEnabled', true)
+    renderComponent()
+    const emitMock = h.mock(eventBus, 'emit')
 
-      await this.user.click(screen.getByTitle('Enter fullscreen mode'))
+    await h.user.click(screen.getByTitle('Enter fullscreen mode'))
 
-      expect(emitMock).toHaveBeenCalledWith('FULLSCREEN_TOGGLE')
-    })
-  }
-}
+    expect(emitMock).toHaveBeenCalledWith('FULLSCREEN_TOGGLE')
+  })
+})

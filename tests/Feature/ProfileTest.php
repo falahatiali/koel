@@ -2,12 +2,17 @@
 
 namespace Tests\Feature;
 
-use App\Models\User;
 use Illuminate\Support\Facades\Hash;
+use PHPUnit\Framework\Attributes\Test;
+use Tests\TestCase;
+
+use function Tests\create_user;
+use function Tests\minimal_base64_encoded_image;
 
 class ProfileTest extends TestCase
 {
-    public function testUpdateProfileRequiresCurrentPassword(): void
+    #[Test]
+    public function updateProfileRequiresCurrentPassword(): void
     {
         $this->putAs('api/me', [
             'name' => 'Foo',
@@ -16,10 +21,10 @@ class ProfileTest extends TestCase
             ->assertUnprocessable();
     }
 
-    public function testUpdateProfileWithoutNewPassword(): void
+    #[Test]
+    public function updateProfileWithoutNewPassword(): void
     {
-        /** @var User $user */
-        $user =  User::factory()->create(['password' => Hash::make('secret')]);
+        $user = create_user(['password' => Hash::make('secret')]);
 
         $this->putAs('api/me', [
             'name' => 'Foo',
@@ -34,10 +39,10 @@ class ProfileTest extends TestCase
         self::assertTrue(Hash::check('secret', $user->password));
     }
 
-    public function testUpdateProfileWithNewPassword(): void
+    #[Test]
+    public function updateProfileWithNewPassword(): void
     {
-        /** @var User $user */
-        $user =  User::factory()->create(['password' => Hash::make('secret')]);
+        $user = create_user(['password' => Hash::make('secret')]);
 
         $token = $this->putAs('api/me', [
             'name' => 'Foo',
@@ -54,5 +59,59 @@ class ProfileTest extends TestCase
         self::assertSame('Foo', $user->name);
         self::assertSame('bar@baz.com', $user->email);
         self::assertTrue(Hash::check('new-secret', $user->password));
+    }
+
+    #[Test]
+    public function updateProfileWithAvatar(): void
+    {
+        $user = create_user(['password' => Hash::make('secret')]);
+        self::assertNull($user->getRawOriginal('avatar'));
+
+        $this->putAs('api/me', [
+            'name' => 'Foo',
+            'email' => 'bar@baz.com',
+            'current_password' => 'secret',
+            'avatar' => minimal_base64_encoded_image(),
+        ], $user)
+            ->assertOk();
+
+        $user->refresh();
+
+        self::assertFileExists(image_storage_path($user->getRawOriginal('avatar')));
+    }
+
+    #[Test]
+    public function updateProfileRemovingAvatar(): void
+    {
+        $user = create_user([
+            'password' => Hash::make('secret'),
+            'email' => 'foo@bar.com',
+            'avatar' => 'foo.jpg',
+        ]);
+
+        $this->putAs('api/me', [
+            'name' => 'Foo',
+            'email' => 'foo@bar.com',
+            'current_password' => 'secret',
+        ], $user)
+            ->assertOk();
+
+        $user->refresh();
+
+        self::assertNull($user->getRawOriginal('avatar'));
+    }
+
+    #[Test]
+    public function disabledInDemo(): void
+    {
+        config(['koel.misc.demo' => true]);
+        $user = create_user(['password' => Hash::make('secret')]);
+
+        $this->putAs('api/me', [
+            'name' => 'Foo',
+            'email' => 'bar@baz.com',
+            'current_password' => 'secret',
+        ], $user)
+            ->assertNoContent();
     }
 }

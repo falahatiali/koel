@@ -1,0 +1,71 @@
+name: Backend Tests - MariaDB
+
+on:
+  pull_request:
+    branches:
+      - master
+    paths-ignore:
+      - resources/assets/**
+      - docs/**
+  push:
+    branches:
+      - master
+    paths-ignore:
+      - resources/assets/**
+      - docs/**
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        php-version: [ 8.2 ]
+        mariadb-version: [ 11.7 ]
+      fail-fast: false
+    services:
+      mariadb:
+        image: mariadb:${{ matrix.mariadb-version }}
+        env:
+          MYSQL_DATABASE: koel
+          MYSQL_USER: mariadb
+          MYSQL_PASSWORD: mariadb
+          MYSQL_ROOT_PASSWORD: mariadb
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="healthcheck.sh --connect --innodb_initialized"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      DB_CONNECTION: mysql-ci
+      DB_HOST: 127.0.1.1
+      DB_PORT: 3306
+      DB_DATABASE: koel
+      DB_USERNAME: mariadb
+      DB_PASSWORD: mariadb
+    steps:
+      - uses: actions/checkout@v1
+      - name: Set up PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ matrix.php-version }}
+          tools: composer:v2
+          extensions: pdo_mysql, zip, gd
+      - name: Install PHP dependencies
+        uses: ramsey/composer-install@v2
+        with:
+          composer-options: --prefer-dist
+      - name: Generate app key
+        run: php artisan key:generate --quiet
+      - name: Run tests
+        run: composer test
+        env:
+          COMPOSER_PROCESS_TIMEOUT: 600
+      - name: Upload logs if broken
+        uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: unit-be-mariadb-logs-${{ github.run_id }}-${{ github.run_attempt }}
+          path: storage/logs

@@ -1,52 +1,20 @@
-import Axios, { AxiosInstance, Method } from 'axios'
+import type { AxiosInstance, Method } from 'axios'
+import Axios from 'axios'
 import NProgress from 'nprogress'
-import { eventBus } from '@/utils'
-import { authService } from '@/services'
+import { authService } from '@/services/authService'
+import { eventBus } from '@/utils/eventBus'
 
 class Http {
   client: AxiosInstance
 
   private silent = false
 
-  private showLoadingIndicator () {
-    NProgress.start()
-  }
-
-  private hideLoadingIndicator () {
-    NProgress.done(true)
-  }
-
-  public request<T> (method: Method, url: string, data: Record<string, any> = {}, onUploadProgress?: any) {
-    return this.client.request({
-      url,
-      data,
-      method,
-      onUploadProgress
-    }) as Promise<{ data: T }>
-  }
-
-  public async get<T> (url: string) {
-    return (await this.request<T>('get', url)).data
-  }
-
-  public async post<T> (url: string, data: Record<string, any>, onUploadProgress?: any) {
-    return (await this.request<T>('post', url, data, onUploadProgress)).data
-  }
-
-  public async put<T> (url: string, data: Record<string, any>) {
-    return (await this.request<T>('put', url, data)).data
-  }
-
-  public async delete<T> (url: string, data: Record<string, any> = {}) {
-    return (await this.request<T>('delete', url, data)).data
-  }
-
   constructor () {
     this.client = Axios.create({
       baseURL: `${window.BASE_URL}api`,
       headers: {
-        'X-Api-Version': 'v6'
-      }
+        'X-Api-Version': 'v7',
+      },
     })
 
     // Intercept the request to make sure the token is injected into the header.
@@ -61,12 +29,10 @@ class Http {
       this.silent || this.hideLoadingIndicator()
       this.silent = false
 
-      // …get the tokens from the header or response data if exist, and save them.
-      const token = response.headers.authorization || response.data.token
+      // …get the tokens from the header if exists, and save them
+      // This occurs during user updating password.
+      const token = response.headers.authorization
       token && authService.setApiToken(token)
-
-      const audioToken = response.data['audio-token']
-      audioToken && authService.setAudioToken(audioToken)
 
       return response
     }, error => {
@@ -77,7 +43,9 @@ class Http {
       if (error.response?.status === 400 || error.response?.status === 401) {
         // and we're not trying to log in
         if (!(error.config.method === 'post' && error.config.url === 'me')) {
-          // the token must have expired. Log out.
+          // the token must have expired.
+          // store the attempted URL so we can redirect the user to it after login.
+          authService.setRedirect()
           eventBus.emit('LOG_OUT')
         }
       }
@@ -89,6 +57,43 @@ class Http {
   public get silently () {
     this.silent = true
     return this
+  }
+
+  public request<T> (method: Method, url: string, data: Record<string, any> = {}, onUploadProgress?: any) {
+    return this.client.request({
+      url,
+      data,
+      method,
+      onUploadProgress,
+    }) as Promise<{ data: T }>
+  }
+
+  public async get<T> (url: string) {
+    return (await this.request<T>('get', url)).data
+  }
+
+  public async post<T> (url: string, data: Record<string, any> = {}, onUploadProgress?: any) {
+    return (await this.request<T>('post', url, data, onUploadProgress)).data
+  }
+
+  public async put<T> (url: string, data: Record<string, any>) {
+    return (await this.request<T>('put', url, data)).data
+  }
+
+  public async patch<T> (url: string, data: Record<string, any>) {
+    return (await this.request<T>('patch', url, data)).data
+  }
+
+  public async delete<T> (url: string, data: Record<string, any> = {}) {
+    return (await this.request<T>('delete', url, data)).data
+  }
+
+  private showLoadingIndicator () {
+    NProgress.start()
+  }
+
+  private hideLoadingIndicator () {
+    NProgress.done(true)
   }
 }
 

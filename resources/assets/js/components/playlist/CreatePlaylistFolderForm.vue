@@ -1,20 +1,19 @@
 <template>
-  <form @submit.prevent="submit" @keydown.esc="maybeClose">
+  <form class="md:w-[420px] min-w-full" @submit.prevent="handleSubmit" @keydown.esc="maybeClose">
     <header>
       <h1>New Playlist Folder</h1>
     </header>
 
     <main>
-      <div class="form-row">
-        <input
-          v-model="name"
+      <FormRow>
+        <TextInput
+          v-model="data.name"
           v-koel-focus
           name="name"
           placeholder="Folder name"
           required
-          type="text"
-        >
-      </div>
+        />
+      </FormRow>
     </main>
 
     <footer>
@@ -25,43 +24,36 @@
 </template>
 
 <script lang="ts" setup>
-import { ref } from 'vue'
-import { playlistFolderStore } from '@/stores'
-import { logger } from '@/utils'
-import { useDialogBox, useMessageToaster, useOverlay } from '@/composables'
+import { playlistFolderStore } from '@/stores/playlistFolderStore'
+import { useDialogBox } from '@/composables/useDialogBox'
+import { useMessageToaster } from '@/composables/useMessageToaster'
+import { useForm } from '@/composables/useForm'
 
-import Btn from '@/components/ui/Btn.vue'
-
-const { showOverlay, hideOverlay } = useOverlay()
-const { toastSuccess } = useMessageToaster()
-const { showErrorDialog, showConfirmDialog } = useDialogBox()
-
-const name = ref('')
+import Btn from '@/components/ui/form/Btn.vue'
+import TextInput from '@/components/ui/form/TextInput.vue'
+import FormRow from '@/components/ui/form/FormRow.vue'
 
 const emit = defineEmits<{ (e: 'close'): void }>()
+
+const { toastSuccess } = useMessageToaster()
+const { showConfirmDialog } = useDialogBox()
+
 const close = () => emit('close')
 
-const submit = async () => {
-  showOverlay()
-
-  try {
-    const folder = await playlistFolderStore.store(name.value)
+const { data, isPristine, handleSubmit } = useForm<Pick<PlaylistFolder, 'name'>>({
+  initialValues: {
+    name: '',
+  },
+  onSubmit: async ({ name }) => await playlistFolderStore.store(name),
+  onSuccess: (folder: PlaylistFolder) => {
     close()
     toastSuccess(`Playlist folder "${folder.name}" created.`)
-  } catch (error) {
-    showErrorDialog('Something went wrong. Please try again.', 'Error')
-    logger.error(error)
-  } finally {
-    hideOverlay()
-  }
-}
+  },
+})
 
 const maybeClose = async () => {
-  if (name.value.trim() === '') {
+  if (isPristine() || await showConfirmDialog('Discard all changes?')) {
     close()
-    return
   }
-
-  await showConfirmDialog('Discard all changes?') && close()
 }
 </script>

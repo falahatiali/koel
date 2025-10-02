@@ -1,53 +1,62 @@
 <template>
-  <ContextMenuBase ref="base" data-testid="artist-context-menu" extra-class="artist-menu">
-    <template v-if="artist">
-      <li @click="play">Play All</li>
-      <li @click="shuffle">Shuffle All</li>
-      <template v-if="isStandardArtist">
-        <li class="separator" />
-        <li @click="viewArtistDetails">Go to Artist</li>
-      </template>
-      <template v-if="isStandardArtist && allowDownload">
-        <li class="separator" />
-        <li @click="download">Download</li>
-      </template>
+  <ul>
+    <MenuItem @click="play">Play All</MenuItem>
+    <MenuItem @click="shuffle">Shuffle All</MenuItem>
+    <Separator />
+    <MenuItem @click="toggleFavorite">{{ artist.favorite ? 'Undo Favorite' : 'Favorite' }}</MenuItem>
+    <MenuItem v-if="allowEdit" @click="requestEditForm">Edit…</MenuItem>
+    <template v-if="isStandardArtist && allowDownload">
+      <Separator />
+      <MenuItem @click="download">Download</MenuItem>
     </template>
-  </ContextMenuBase>
+    <Separator />
+    <MenuItem @click="showEmbedModal">Embed…</MenuItem>
+  </ul>
 </template>
 
 <script lang="ts" setup>
-import { computed, ref, toRef } from 'vue'
-import { artistStore, commonStore, songStore } from '@/stores'
-import { downloadService, playbackService } from '@/services'
-import { useContextMenu, useRouter } from '@/composables'
-import { eventBus } from '@/utils'
+import { computed, onMounted, ref, toRef, toRefs } from 'vue'
+import { artistStore } from '@/stores/artistStore'
+import { commonStore } from '@/stores/commonStore'
+import { playableStore } from '@/stores/playableStore'
+import { downloadService } from '@/services/downloadService'
+import { useContextMenu } from '@/composables/useContextMenu'
+import { useRouter } from '@/composables/useRouter'
+import { eventBus } from '@/utils/eventBus'
+import { playback } from '@/services/playbackManager'
+import { usePolicies } from '@/composables/usePolicies'
 
-const { go } = useRouter()
-const { base, ContextMenuBase, open, trigger } = useContextMenu()
+const props = defineProps<{ artist: Artist }>()
+const { artist } = toRefs(props)
 
-const artist = ref<Artist>()
-const allowDownload = toRef(commonStore.state, 'allow_download')
+const { go, url } = useRouter()
+const { MenuItem, Separator, trigger } = useContextMenu()
+const { currentUserCan } = usePolicies()
+
+const allowDownload = toRef(commonStore.state, 'allows_download')
+const allowEdit = ref(false)
 
 const isStandardArtist = computed(() =>
-  !artistStore.isUnknown(artist.value!)
-  && !artistStore.isVarious(artist.value!)
+  !artistStore.isUnknown(artist.value)
+  && !artistStore.isVarious(artist.value),
 )
 
 const play = () => trigger(async () => {
-  playbackService.queueAndPlay(await songStore.fetchForArtist(artist.value!))
-  go('queue')
+  go(url('queue'))
+  await playback().queueAndPlay(await playableStore.fetchSongsForArtist(artist.value))
 })
 
 const shuffle = () => trigger(async () => {
-  playbackService.queueAndPlay(await songStore.fetchForArtist(artist.value!), true)
-  go('queue')
+  go(url('queue'))
+  await playback().queueAndPlay(await playableStore.fetchSongsForArtist(artist.value), true)
 })
 
-const viewArtistDetails = () => trigger(() => go(`artist/${artist.value!.id}`))
-const download = () => trigger(() => downloadService.fromArtist(artist.value!))
+const download = () => trigger(() => downloadService.fromArtist(artist.value))
+const toggleFavorite = () => trigger(() => artistStore.toggleFavorite(artist.value))
+const requestEditForm = () => trigger(() => eventBus.emit('MODAL_SHOW_EDIT_ARTIST_FORM', artist.value))
+const showEmbedModal = () => trigger(() => eventBus.emit('MODAL_SHOW_CREATE_EMBED_FORM', artist.value))
 
-eventBus.on('ARTIST_CONTEXT_MENU_REQUESTED', async (e, _artist) => {
-  artist.value = _artist
-  await open(e.pageY, e.pageX)
+onMounted(async () => {
+  allowEdit.value = await currentUserCan.editArtist(artist.value)
 })
 </script>

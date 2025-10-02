@@ -4,55 +4,69 @@ namespace App\Repositories;
 
 use App\Models\Artist;
 use App\Models\User;
-use App\Repositories\Traits\Searchable;
+use App\Repositories\Contracts\ScoutableRepository;
 use Illuminate\Contracts\Pagination\Paginator;
 use Illuminate\Database\Eloquent\Collection;
-use Illuminate\Database\Query\JoinClause;
 
-class ArtistRepository extends Repository
+/**
+ * @extends Repository<Artist>
+ * @implements ScoutableRepository<Artist>
+ */
+class ArtistRepository extends Repository implements ScoutableRepository
 {
-    use Searchable;
+    /**
+     * @param string $id
+     */
+    public function getOne($id, ?User $user = null): Artist
+    {
+        return Artist::query()
+            ->withUserContext(user: $user ?? $this->auth->user())
+            ->findOrFail($id);
+    }
 
     /** @return Collection|array<array-key, Artist> */
     public function getMostPlayed(int $count = 6, ?User $user = null): Collection
     {
-        $user ??= auth()->user();
-
         return Artist::query()
-            ->leftJoin('songs', 'artists.id', '=', 'songs.artist_id')
-            ->leftJoin('interactions', static function (JoinClause $join) use ($user): void {
-                $join->on('interactions.song_id', '=', 'songs.id')->where('interactions.user_id', $user->id);
-            })
-            ->groupBy([
-                'artists.id',
-                'play_count',
-                'artists.name',
-                'artists.image',
-                'artists.created_at',
-                'artists.updated_at',
-            ])
-            ->isStandard()
+            ->withUserContext(user: $user ?? $this->auth->user(), includePlayCount: true)
+            ->onlyStandard()
             ->orderByDesc('play_count')
             ->limit($count)
-            ->get('artists.*');
+            ->get();
     }
 
     /** @return Collection|array<array-key, Artist> */
-    public function getMany(array $ids, bool $inThatOrder = false): Collection
+    public function getMany(array $ids, bool $preserveOrder = false, ?User $user = null): Collection
     {
         $artists = Artist::query()
-            ->isStandard()
-            ->whereIn('id', $ids)
+            ->onlyStandard()
+            ->withUserContext(user: $user ?? $this->auth->user())
+            ->whereIn('artists.id', $ids)
             ->get();
 
-        return $inThatOrder ? $artists->orderByArray($ids) : $artists;
+        return $preserveOrder ? $artists->orderByArray($ids) : $artists;
     }
 
-    public function paginate(): Paginator
-    {
+    public function getForListing(
+        string $sortColumn,
+        string $sortDirection,
+        bool $favoritesOnly = false,
+        ?User $user = null,
+    ): Paginator {
         return Artist::query()
-            ->isStandard()
-            ->orderBy('name')
+            ->withUserContext(user: $user ?? $this->auth->user(), favoritesOnly: $favoritesOnly)
+            ->onlyStandard()
+            ->sort($sortColumn, $sortDirection)
             ->simplePaginate(21);
+    }
+
+    /** @return Collection<Artist>|array<array-key, Artist> */
+    public function search(string $keywords, int $limit, ?User $user = null): Collection
+    {
+        return $this->getMany(
+            ids: Artist::search($keywords)->get()->take($limit)->modelKeys(),
+            preserveOrder: true,
+            user: $user,
+        );
     }
 }

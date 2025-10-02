@@ -1,176 +1,150 @@
 <template>
-  <nav id="sidebar" v-koel-clickaway="closeIfMobile" :class="{ showing: mobileShowing }" class="side side-nav">
-    <SearchForm />
-    <section class="music">
-      <h1>Your Music</h1>
-
-      <ul class="menu">
-        <SidebarItem screen="Home" href="#/home" :icon="faHome">Home</SidebarItem>
-        <QueueSidebarItem />
-        <SidebarItem screen="Songs" href="#/songs" :icon="faMusic">All Songs</SidebarItem>
-        <SidebarItem screen="Albums" href="#/albums" :icon="faCompactDisc">Albums</SidebarItem>
-        <SidebarItem screen="Artists" href="#/artists" :icon="faMicrophone">Artists</SidebarItem>
-        <SidebarItem screen="Genres" href="#/genres" :icon="faTags">Genres</SidebarItem>
-        <YouTubeSidebarItem v-show="showYouTube" />
-      </ul>
+  <nav
+    :class="{ 'collapsed': !expanded, 'tmp-showing': tmpShowing, 'showing': mobileShowing }"
+    class="group left-0 top-0 flex flex-col fixed h-full w-full md:relative md:w-k-sidebar-width z-[999] md:z-10"
+    @mouseenter="onMouseEnter"
+    @mouseleave="onMouseLeave"
+  >
+    <section class="btn-collapse-block flex md:hidden items-center border-b border-b-white/5 h-k-header-height px-6">
+      <div class="bg-white/5 rounded-full">
+        <SideSheetButton @click.prevent="collapseSidebar">
+          <Icon :icon="faTimes" fixed-width />
+        </SideSheetButton>
+      </div>
     </section>
 
-    <PlaylistList />
-
-    <section v-if="isAdmin" class="manage">
-      <h1>Manage</h1>
-
-      <ul class="menu">
-        <SidebarItem screen="Settings" href="#/settings" :icon="faTools">Settings</SidebarItem>
-        <SidebarItem screen="Upload" href="#/upload" :icon="faUpload">Upload</SidebarItem>
-        <SidebarItem screen="Users" href="#/users" :icon="faUsers">Users</SidebarItem>
-      </ul>
+    <section class="home-search-block p-6 flex gap-2">
+      <HomeButton />
+      <SearchForm class="flex-1" />
     </section>
+
+    <section v-koel-overflow-fade class="pt-2 pb-10 overflow-y-auto space-y-8">
+      <SidebarYourMusicSection />
+      <SidebarPlaylistsSection />
+      <SidebarManageSection v-if="showManageOptions" />
+    </section>
+
+    <section v-if="canUpgradeToPlus" class="p-6 flex-1 flex flex-col-reverse">
+      <BtnUpgradeToPlus />
+    </section>
+
+    <SidebarToggleButton
+      v-model="expanded"
+      class="opacity-0 no-hover:hidden group-hover:opacity-100 transition"
+      :class="expanded || 'opacity-100'"
+    />
   </nav>
 </template>
 
 <script lang="ts" setup>
-import {
-  faCompactDisc,
-  faHome,
-  faMicrophone,
-  faMusic,
-  faTags,
-  faTools,
-  faUpload,
-  faUsers
-} from '@fortawesome/free-solid-svg-icons'
+import { faTimes } from '@fortawesome/free-solid-svg-icons'
+import { computed, ref, watch } from 'vue'
+import { eventBus } from '@/utils/eventBus'
+import { useKoelPlus } from '@/composables/useKoelPlus'
+import { useLocalStorage } from '@/composables/useLocalStorage'
+import { useRouter } from '@/composables/useRouter'
+import { usePolicies } from '@/composables/usePolicies'
 
-import { computed, ref } from 'vue'
-import { eventBus } from '@/utils'
-import { useAuthorization, useRouter, useThirdPartyServices } from '@/composables'
-
-import SidebarItem from './SidebarItem.vue'
-import QueueSidebarItem from './QueueSidebarItem.vue'
-import YouTubeSidebarItem from './YouTubeSidebarItem.vue'
-import PlaylistList from './PlaylistSidebarList.vue'
+import BtnUpgradeToPlus from '@/components/koel-plus/BtnUpgradeToPlus.vue'
+import HomeButton from '@/components/layout/main-wrapper/sidebar/HomeButton.vue'
 import SearchForm from '@/components/ui/SearchForm.vue'
+import SideSheetButton from '@/components/layout/main-wrapper/side-sheet/SideSheetButton.vue'
+import SidebarManageSection from './SidebarManageSection.vue'
+import SidebarPlaylistsSection from './SidebarPlaylistsSection.vue'
+import SidebarToggleButton from '@/components/layout/main-wrapper/sidebar/SidebarToggleButton.vue'
+import SidebarYourMusicSection from './SidebarYourLibrarySection.vue'
 
 const { onRouteChanged } = useRouter()
-const { useYouTube } = useThirdPartyServices()
-const { isAdmin } = useAuthorization()
+const { currentUserCan } = usePolicies()
+const { isPlus } = useKoelPlus()
+const { get: lsGet, set: lsSet } = useLocalStorage()
 
 const mobileShowing = ref(false)
-const youTubePlaying = ref(false)
+const expanded = ref(!lsGet('sidebar-collapsed', false))
 
-const showYouTube = computed(() => useYouTube.value && youTubePlaying.value)
+watch(expanded, value => lsSet('sidebar-collapsed', !value))
 
-const closeIfMobile = () => (mobileShowing.value = false)
+let tmpShowingHandler: number | undefined
+const tmpShowing = ref(false)
+
+const onMouseEnter = () => {
+  if (expanded.value) {
+    return
+  }
+
+  tmpShowingHandler = window.setTimeout(() => {
+    if (expanded.value) {
+      return
+    }
+    tmpShowing.value = true
+  }, 500)
+}
+
+const onMouseLeave = (e: MouseEvent) => {
+  if (!e.relatedTarget) {
+    return
+  }
+
+  if (tmpShowingHandler) {
+    clearTimeout(tmpShowingHandler)
+    tmpShowingHandler = undefined
+  }
+
+  tmpShowing.value = false
+}
+
+const showManageOptions = computed(() =>
+  currentUserCan.manageSettings()
+  || currentUserCan.manageUsers()
+  || currentUserCan.uploadSongs(),
+)
+
+const canUpgradeToPlus = computed(() => !isPlus.value && currentUserCan.manageSettings())
 
 onRouteChanged(_ => (mobileShowing.value = false))
+
+const collapseSidebar = () => (mobileShowing.value = false)
 
 /**
  * Listen to toggle sidebar event to show or hide the sidebar.
  * This should only be triggered on a mobile device.
  */
 eventBus.on('TOGGLE_SIDEBAR', () => (mobileShowing.value = !mobileShowing.value))
-  .on('PLAY_YOUTUBE_VIDEO', _ => (youTubePlaying.value = true))
 </script>
 
-<style lang="scss" scoped>
+<style lang="postcss" scoped>
+@import '@/../css/partials/mixins.pcss';
+
 nav {
-  width: var(--sidebar-width);
-  background-color: var(--color-bg-secondary);
-  padding: 2.05rem 1.5rem;
-  overflow: auto;
-  overflow-x: hidden;
+  @apply bg-k-bg-secondary;
   -ms-overflow-style: -ms-autohiding-scrollbar;
   box-shadow: 0 0 5px 0 rgba(0, 0, 0, 0.1);
 
-  > * + * {
-    margin-top: 2.25rem;
-  }
+  &.collapsed {
+    @apply w-[24px] transition-[width] duration-200;
 
-  @media (hover: none) {
-    // Enable scroll with momentum on touch devices
-    overflow-y: scroll;
-    -webkit-overflow-scrolling: touch;
-  }
-
-  .droppable {
-    box-shadow: inset 0 0 0 1px var(--color-accent);
-    border-radius: 4px;
-    cursor: copy;
-  }
-
-  .queue > span {
-    display: flex;
-    align-items: baseline;
-    justify-content: space-between;
-    flex: 1;
-  }
-
-  :deep(h1) {
-    text-transform: uppercase;
-    letter-spacing: 1px;
-    margin-bottom: 12px;
-  }
-
-  :deep(a svg) {
-    opacity: .7;
-  }
-
-  :deep(a) {
-    display: flex;
-    align-items: center;
-    gap: .7rem;
-    height: 36px;
-    line-height: 36px;
-    white-space: nowrap;
-    text-overflow: ellipsis;
-    position: relative;
-
-    &:active {
-      padding: 2px 0 0 2px;
+    > *:not(.btn-toggle) {
+      @apply hidden;
     }
 
-    &.active, &:hover {
-      color: var(--color-text-primary);
-    }
+    &.tmp-showing {
+      @apply fixed h-screen bg-k-bg-primary w-k-sidebar-width shadow-2xl z-[999];
 
-    &.active {
-      &::before {
-        content: '';
-        position: absolute;
-        top: 25%;
-        right: -1.5rem;
-        width: 4px;
-        height: 50%;
-        background-color: var(--color-highlight);
-        box-shadow: 0 0 40px 10px var(--color-highlight);
-        border-radius: 9999rem;
+      > *:not(.btn-toggle, .btn-collapse-block) {
+        @apply block;
       }
-    }
 
-    span {
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
-    }
-  }
-
-  :deep(li li a) { // submenu items
-    padding-left: 11px;
-
-    &:active {
-      padding: 2px 0 0 13px;
+      > .home-search-block {
+        @apply flex;
+      }
     }
   }
 
   @media screen and (max-width: 768px) {
-    @include themed-background();
-    transform: translateX(-100vw);
-    transition: transform .2s ease-in-out;
+    @mixin themed-background;
 
-    position: fixed;
-    width: 100%;
-    z-index: 99;
-    height: calc(100vh - var(--header-height));
+    transform: translateX(-100vw);
+    transition: transform 0.2s ease-in-out;
 
     &.showing {
       transform: translateX(0);

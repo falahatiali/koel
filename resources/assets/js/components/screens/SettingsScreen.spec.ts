@@ -1,46 +1,47 @@
-import { expect, it } from 'vitest'
-import UnitTestCase from '@/__tests__/UnitTestCase'
-import { settingStore } from '@/stores'
 import { screen, waitFor } from '@testing-library/vue'
+import { describe, expect, it } from 'vitest'
+import { createHarness } from '@/__tests__/TestHarness'
+import { settingStore } from '@/stores/settingStore'
 import { DialogBoxStub } from '@/__tests__/stubs'
-import SettingsScreen from './SettingsScreen.vue'
+import Router from '@/router'
+import Component from './SettingsScreen.vue'
 
-new class extends UnitTestCase {
-  protected test () {
-    it('renders', () => expect(this.render(SettingsScreen).html()).toMatchSnapshot())
+describe('settingsScreen.vue', () => {
+  const h = createHarness()
 
-    it('submits the settings form', async () => {
-      const updateMock = this.mock(settingStore, 'update')
-      const goMock = this.mock(this.router, 'go')
+  it('renders', () => expect(h.render(Component).html()).toMatchSnapshot())
 
-      settingStore.state.media_path = ''
-      this.render(SettingsScreen)
+  it('submits the settings form', async () => {
+    const updateMock = h.mock(settingStore, 'update')
+    const goMock = h.mock(Router, 'go')
 
-      await this.type(screen.getByLabelText('Media Path'), '/media')
-      await this.user.click(screen.getByRole('button', { name: 'Scan' }))
+    settingStore.state.media_path = ''
+    h.render(Component)
 
-      await waitFor(() => {
-        expect(updateMock).toHaveBeenCalledWith({ media_path: '/media' })
-        expect(goMock).toHaveBeenCalledWith('home')
-      })
+    await h.type(screen.getByPlaceholderText('/path/to/your/music'), '/media')
+    await h.user.click(screen.getByTestId('submit'))
+
+    await waitFor(() => {
+      expect(updateMock).toHaveBeenCalledWith({ media_path: '/media' })
+      expect(goMock).toHaveBeenCalledWith('/#/home', true)
     })
+  })
 
-    it('confirms upon media path change', async () => {
-      const updateMock = this.mock(settingStore, 'update')
-      const goMock = this.mock(this.router, 'go')
-      const confirmMock = this.mock(DialogBoxStub.value, 'confirm')
+  it('confirms upon media path change', async () => {
+    const updateMock = h.mock(settingStore, 'update')
+    const goMock = h.mock(Router, 'go')
+    const confirmMock = h.mock(DialogBoxStub.value, 'confirm')
 
-      settingStore.state.media_path = '/old'
-      this.render(SettingsScreen)
+    settingStore.state.media_path = '/old'
+    h.render(Component)
 
-      await this.type(screen.getByLabelText('Media Path'), '/new')
-      await this.user.click(screen.getByRole('button', { name: 'Scan' }))
+    await h.type(screen.getByPlaceholderText('/path/to/your/music'), '/new')
+    await h.user.click(screen.getByTestId('submit'))
 
-      await waitFor(() => {
-        expect(updateMock).not.toHaveBeenCalled()
-        expect(goMock).not.toHaveBeenCalled()
-        expect(confirmMock).toHaveBeenCalled()
-      })
+    await waitFor(() => {
+      expect(updateMock).not.toHaveBeenCalled()
+      expect(goMock).not.toHaveBeenCalled()
+      expect(confirmMock).toHaveBeenCalled()
     })
-  }
-}
+  })
+})

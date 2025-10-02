@@ -1,54 +1,62 @@
-import { expect, it } from 'vitest'
-import UnitTestCase from '@/__tests__/UnitTestCase'
-import { screen, waitFor } from '@testing-library/vue'
+import { describe, expect, it } from 'vitest'
+import { fireEvent, screen, waitFor } from '@testing-library/vue'
+import { createHarness } from '@/__tests__/TestHarness'
 import { MessageToasterStub } from '@/__tests__/stubs'
-import { invitationService } from '@/services'
-import InviteUserForm from './InviteUserForm.vue'
+import { invitationService } from '@/services/invitationService'
+import Component from './InviteUserForm.vue'
 
-new class extends UnitTestCase {
-  protected test () {
-    it('invites single email', async () => {
-      const inviteMock = this.mock(invitationService, 'invite')
-      const alertMock = this.mock(MessageToasterStub.value, 'success')
+describe('inviteUserForm.vue', () => {
+  const h = createHarness()
 
-      this.render(InviteUserForm)
-
-      await this.type(screen.getByRole('textbox'), 'foo@bar.ai\n')
-      await this.user.click(screen.getByRole('checkbox'))
-      await this.user.click(screen.getByRole('button', { name: 'Invite' }))
-
-      await waitFor(() => {
-        expect(inviteMock).toHaveBeenCalledWith(['foo@bar.ai'], true)
-        expect(alertMock).toHaveBeenCalledWith('Invitation sent.')
-      })
-    })
-
-    it('invites multiple emails', async () => {
-      const inviteMock = this.mock(invitationService, 'invite')
-      const alertMock = this.mock(MessageToasterStub.value, 'success')
-
-      this.render(InviteUserForm)
-
-      await this.type(screen.getByRole('textbox'), 'foo@bar.ai\n\na@b.c\n\n')
-      await this.user.click(screen.getByRole('checkbox'))
-      await this.user.click(screen.getByRole('button', { name: 'Invite' }))
-
-      await waitFor(() => {
-        expect(inviteMock).toHaveBeenCalledWith(['foo@bar.ai', 'a@b.c'], true)
-        expect(alertMock).toHaveBeenCalledWith('Invitations sent.')
-      })
-    })
-
-    it('does not invites if at least one email is invalid', async () => {
-      const inviteMock = this.mock(invitationService, 'invite')
-
-      this.render(InviteUserForm)
-
-      await this.type(screen.getByRole('textbox'), 'invalid\n\na@b.c\n\n')
-      await this.user.click(screen.getByRole('checkbox'))
-      await this.user.click(screen.getByRole('button', { name: 'Invite' }))
-
-      await waitFor(() => expect(inviteMock).not.toHaveBeenCalled())
+  const renderComponent = () => {
+    return h.render(Component, {
+      global: {
+        stubs: {
+          RolePicker: h.stub('role-picker', true),
+        },
+      },
     })
   }
-}
+
+  it('invites single email', async () => {
+    const inviteMock = h.mock(invitationService, 'invite')
+    const alertMock = h.mock(MessageToasterStub.value, 'success')
+
+    renderComponent()
+
+    await h.type(screen.getByLabelText('Emails'), 'foo@bar.ai\n')
+    await fireEvent.update(screen.getByTestId('role-picker'), 'manager')
+    await h.user.click(screen.getByRole('button', { name: 'Invite' }))
+
+    await waitFor(() => {
+      expect(inviteMock).toHaveBeenCalledWith(['foo@bar.ai'], 'manager')
+      expect(alertMock).toHaveBeenCalledWith('Invitation(s) sent.')
+    })
+  })
+
+  it('invites multiple emails', async () => {
+    const inviteMock = h.mock(invitationService, 'invite')
+    const alertMock = h.mock(MessageToasterStub.value, 'success')
+
+    renderComponent()
+
+    await h.type(screen.getByLabelText('Emails'), 'foo@bar.ai\n\na@b.c\n\n')
+    await h.user.click(screen.getByRole('button', { name: 'Invite' }))
+
+    await waitFor(() => {
+      expect(inviteMock).toHaveBeenCalledWith(['foo@bar.ai', 'a@b.c'], 'user')
+      expect(alertMock).toHaveBeenCalledWith('Invitation(s) sent.')
+    })
+  })
+
+  it('does not invites if at least one email is invalid', async () => {
+    const inviteMock = h.mock(invitationService, 'invite')
+
+    renderComponent()
+
+    await h.type(screen.getByLabelText('Emails'), 'invalid\n\na@b.c\n\n')
+    await h.user.click(screen.getByRole('button', { name: 'Invite' }))
+
+    await waitFor(() => expect(inviteMock).not.toHaveBeenCalled())
+  })
+})

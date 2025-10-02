@@ -1,46 +1,45 @@
-import { expect, it } from 'vitest'
-import { commonStore } from '@/stores'
-import UnitTestCase from '@/__tests__/UnitTestCase'
-import { http } from '@/services'
+import { describe, expect, it } from 'vitest'
 import { screen, waitFor } from '@testing-library/vue'
-import AboutKoelModel from './AboutKoelModal.vue'
+import { createHarness } from '@/__tests__/TestHarness'
+import { commonStore } from '@/stores/commonStore'
+import { http } from '@/services/http'
+import Component from './AboutKoelModal.vue'
 
-new class extends UnitTestCase {
-  private renderComponent () {
-    return this.render(AboutKoelModel, {
+describe('aboutKoelModal.vue', () => {
+  const h = createHarness()
+
+  const renderComponent = () => {
+    return h.render(Component, {
       global: {
         stubs: {
-          SponsorList: this.stub('sponsor-list')
-        }
-      }
+          SponsorList: h.stub('sponsor-list'),
+        },
+      },
     })
   }
 
-  protected test () {
-    it('renders', async () => {
-      commonStore.state.current_version = 'v0.0.0'
-      commonStore.state.latest_version = 'v0.0.0'
+  it('renders', async () => {
+    commonStore.state.current_version = 'v0.0.0'
+    commonStore.state.latest_version = 'v0.0.0'
 
-      expect(this.renderComponent().html()).toMatchSnapshot()
+    expect(renderComponent().html()).toMatchSnapshot()
+  })
+
+  it('shows new version', () => {
+    commonStore.state.current_version = 'v1.0.0'
+    commonStore.state.latest_version = 'v1.0.1'
+    h.actingAsAdmin()
+    renderComponent().getByTestId('new-version-about')
+  })
+
+  it('shows demo notation', async () => h.withDemoMode(async () => {
+    const getMock = h.mock(http, 'get').mockResolvedValue([])
+
+    renderComponent()
+
+    await waitFor(() => {
+      screen.getByTestId('demo-credits')
+      expect(getMock).toHaveBeenCalledWith('demo/credits')
     })
-
-    it('shows new version', () => {
-      commonStore.state.current_version = 'v1.0.0'
-      commonStore.state.latest_version = 'v1.0.1'
-      this.actingAsAdmin().renderComponent().getByTestId('new-version-about')
-    })
-
-    it('shows demo notation', async () => {
-      const getMock = this.mock(http, 'get').mockResolvedValue([])
-      // @ts-ignore
-      import.meta.env.VITE_KOEL_ENV = 'demo'
-
-      this.renderComponent()
-
-      await waitFor(() => {
-        screen.getByTestId('demo-credits')
-        expect(getMock).toHaveBeenCalledWith('demo/credits')
-      })
-    })
-  }
-}
+  }))
+})

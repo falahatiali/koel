@@ -2,14 +2,19 @@
 
 namespace Tests\Feature;
 
-use App\Models\User;
+use App\Services\AuthenticationService;
 use Illuminate\Support\Facades\Hash;
+use PHPUnit\Framework\Attributes\Test;
+use Tests\TestCase;
+
+use function Tests\create_user;
 
 class AuthTest extends TestCase
 {
-    public function testLogIn(): void
+    #[Test]
+    public function logIn(): void
     {
-        User::factory()->create([
+        create_user([
             'email' => 'koel@koel.dev',
             'password' => Hash::make('secret'),
         ]);
@@ -31,10 +36,25 @@ class AuthTest extends TestCase
             ->assertUnauthorized();
     }
 
-    public function testLogOut(): void
+    #[Test]
+    public function loginViaOneTimeToken(): void
     {
-        /** @var User $user */
-        $user = User::factory()->create([
+        $user = create_user();
+        $authService = app(AuthenticationService::class);
+        $token = $authService->generateOneTimeToken($user);
+
+        $this->post('api/me/otp', ['token' => $token])
+            ->assertOk()
+            ->assertJsonStructure([
+                'token',
+                'audio-token',
+            ]);
+    }
+
+    #[Test]
+    public function logOut(): void
+    {
+        $user = create_user([
             'email' => 'koel@koel.dev',
             'password' => Hash::make('secret'),
         ]);

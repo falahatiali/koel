@@ -2,45 +2,32 @@
 
 namespace App\Services;
 
-use App\Services\ApiClients\ITunesClient;
-use Illuminate\Cache\Repository as Cache;
+use App\Http\Integrations\iTunes\ITunesConnector;
+use App\Http\Integrations\iTunes\Requests\GetTrackRequest;
+use App\Models\Album;
+use Illuminate\Support\Facades\Cache;
 
 class ITunesService
 {
-    public function __construct(private ITunesClient $client, private Cache $cache)
+    public function __construct(private readonly ITunesConnector $connector)
     {
     }
 
-    /**
-     * Determines whether to use iTunes services.
-     */
     public static function used(): bool
     {
-        return (bool) config('koel.itunes.enabled');
+        return (bool) config('koel.services.itunes.enabled');
     }
 
-    /**
-     * Search for a track on iTunes Store with the given information and get its URL.
-     *
-     * @param string $term The main query string (should be the track's name)
-     * @param string $album The album's name, if available
-     * @param string $artist The artist's name, if available
-     */
-    public function getTrackUrl(string $term, string $album = '', string $artist = ''): ?string
+    public function getTrackUrl(string $trackName, Album $album): ?string
     {
-        return attempt(function () use ($term, $album, $artist): ?string {
-            return $this->cache->remember(
-                md5("itunes_track_url_$term$album$artist"),
-                24 * 60 * 7,
-                function () use ($term, $album, $artist): ?string {
-                    $params = [
-                        'term' => $term . ($album ? " $album" : '') . ($artist ? " $artist" : ''),
-                        'media' => 'music',
-                        'entity' => 'song',
-                        'limit' => 1,
-                    ];
+        return rescue(function () use ($trackName, $album): ?string {
+            $request = new GetTrackRequest($trackName, $album);
 
-                    $response = $this->client->get('/', ['query' => $params]);
+            return Cache::remember(
+                cache_key('iTunes track URL', serialize($request->query())),
+                now()->addWeek(),
+                function () use ($request): ?string {
+                    $response = $this->connector->send($request)->object();
 
                     if (!$response->resultCount) {
                         return null;
@@ -49,7 +36,7 @@ class ITunesService
                     $trackUrl = $response->results[0]->trackViewUrl;
                     $connector = parse_url($trackUrl, PHP_URL_QUERY) ? '&' : '?';
 
-                    return $trackUrl . "{$connector}at=" . config('koel.itunes.affiliate_id');
+                    return $trackUrl . "{$connector}at=" . config('koel.services.itunes.affiliate_id');
                 }
             );
         });

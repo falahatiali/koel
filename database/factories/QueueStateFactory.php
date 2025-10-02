@@ -8,12 +8,12 @@ use Illuminate\Database\Eloquent\Factories\Factory;
 
 class QueueStateFactory extends Factory
 {
-    /** @return array<mixed> */
+    /** @inheritdoc */
     public function definition(): array
     {
         return [
             'user_id' => User::factory(),
-            'song_ids' => Song::factory()->count(3)->create()->pluck('id')->toArray(),
+            'song_ids' => Song::factory()->count(3)->create()->modelKeys(),
             'current_song_id' => null,
             'playback_position' => 0,
         ];

@@ -2,13 +2,14 @@
 
 namespace App\Http\Controllers\API;
 
+use App\Enums\Acl\Role;
 use App\Exceptions\InvitationNotFoundException;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\API\AcceptUserInvitationRequest;
 use App\Http\Requests\API\GetUserInvitationRequest;
 use App\Http\Requests\API\InviteUserRequest;
 use App\Http\Requests\API\RevokeUserInvitationRequest;
-use App\Http\Resources\UserResource;
+use App\Http\Resources\UserProspectResource;
 use App\Models\User;
 use App\Services\AuthenticationService;
 use App\Services\UserInvitationService;
@@ -17,33 +18,30 @@ use Illuminate\Http\Response;
 
 class UserInvitationController extends Controller
 {
-    /**
-     * @param User $invitor
-     */
     public function __construct(
-        private UserInvitationService $invitationService,
-        private AuthenticationService $auth,
-        private ?Authenticatable $invitor
+        private readonly UserInvitationService $invitationService,
+        private readonly AuthenticationService $auth,
     ) {
     }
 
-    public function invite(InviteUserRequest $request)
+    /** @param User $invitor */
+    public function invite(InviteUserRequest $request, Authenticatable $invitor)
     {
-        $this->authorize('admin', $this->invitor);
+        $this->authorize('manage', $invitor);
 
         $invitees = $this->invitationService->invite(
             $request->emails,
-            $request->get('is_admin') ?: false,
-            $this->invitor
+            $request->enum('role', Role::class),
+            $invitor
         );
 
-        return UserResource::collection($invitees);
+        return UserProspectResource::collection($invitees);
     }
 
     public function get(GetUserInvitationRequest $request)
     {
         try {
-            return UserResource::make($this->invitationService->getUserProspectByToken($request->token));
+            return UserProspectResource::make($this->invitationService->getUserProspectByToken($request->token));
         } catch (InvitationNotFoundException) {
             abort(Response::HTTP_NOT_FOUND, 'The invitation token is invalid.');
         }
@@ -62,7 +60,7 @@ class UserInvitationController extends Controller
 
     public function revoke(RevokeUserInvitationRequest $request)
     {
-        $this->authorize('admin', $this->invitor);
+        $this->authorize('manage', User::class);
 
         try {
             $this->invitationService->revokeByEmail($request->email);

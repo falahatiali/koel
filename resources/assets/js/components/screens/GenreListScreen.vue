@@ -1,131 +1,124 @@
 <template>
-  <section id="genresWrapper">
-    <ScreenHeader layout="collapsed">Genres</ScreenHeader>
+  <ScreenBase>
+    <template #header>
+      <ScreenHeader layout="collapsed" :disabled="loading">
+        Genres
+
+        <template #controls>
+          <div class="flex gap-2">
+            <GenreListSorter
+              :field="preferences.genres_sort_field"
+              :order="preferences.genres_sort_order"
+              @sort="sort"
+            />
+
+            <ListFilter />
+          </div>
+        </template>
+      </ScreenHeader>
+    </template>
 
     <ScreenEmptyState v-if="libraryEmpty">
       <template #icon>
-        <Icon :icon="faTags" />
+        <GuitarIcon :size="96" />
       </template>
       No genres found.
-      <span class="secondary d-block">
-        {{ isAdmin ? 'Have you set up your library yet?' : 'Contact your administrator to set up your library.' }}
+      <span v-if="currentUserCan.manageSettings()" class="secondary block">
+        Have you set up your library yet?
       </span>
     </ScreenEmptyState>
 
-    <div class="main-scroll-wrap" v-else>
-      <ul v-if="genres" class="genres">
-        <li v-for="genre in genres" :key="genre.name" :class="`level-${getLevel(genre)}`">
-          <a
-            :href="`/#/genres/${encodeURIComponent(genre.name)}`"
-            :title="`${genre.name}: ${pluralize(genre.song_count, 'song')}`"
-          >
-            <span class="name">{{ genre.name }}</span>
-            <span class="count">{{ genre.song_count }}</span>
-          </a>
-        </li>
+    <template v-else>
+      <ul v-if="!loading" class="genre-list grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-5 gap-3">
+        <GenreCard v-for="genre in displayedGenres" :key="genre.id" :genre />
       </ul>
-      <ul v-else class="genres">
-        <li v-for="i in 20" :key="i">
-          <GenreItemSkeleton />
-        </li>
+
+      <ul v-else class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-5 gap-3">
+        <GenreCardSkeleton v-for="key in 11" :key />
       </ul>
-    </div>
-  </section>
+    </template>
+  </ScreenBase>
 </template>
 
 <script lang="ts" setup>
-import { faTags } from '@fortawesome/free-solid-svg-icons'
-import { maxBy, minBy } from 'lodash'
-import { computed, onMounted, ref } from 'vue'
-import { commonStore, genreStore } from '@/stores'
-import { pluralize } from '@/utils'
-import { useAuthorization } from '@/composables'
+import { GuitarIcon } from 'lucide-vue-next'
+import { computed, onMounted, provide, ref } from 'vue'
+import { commonStore } from '@/stores/commonStore'
+import { genreStore } from '@/stores/genreStore'
+import { useErrorHandler } from '@/composables/useErrorHandler'
+import { preferenceStore as preferences } from '@/stores/preferenceStore'
+import { useFuzzySearch } from '@/composables/useFuzzySearch'
+import { FilterKeywordsKey } from '@/symbols'
+import { orderBy } from 'lodash'
+import { usePolicies } from '@/composables/usePolicies'
 
 import ScreenHeader from '@/components/ui/ScreenHeader.vue'
-import GenreItemSkeleton from '@/components/ui/skeletons/GenreItemSkeleton.vue'
+import GenreCardSkeleton from '@/components/genre/GenreCardSkeleton.vue'
 import ScreenEmptyState from '@/components/ui/ScreenEmptyState.vue'
+import ScreenBase from '@/components/screens/ScreenBase.vue'
+import GenreCard from '@/components/genre/GenreCard.vue'
+import ListFilter from '@/components/ui/ListFilter.vue'
+import GenreListSorter from '@/components/genre/GenreListSorter.vue'
 
-const { isAdmin } = useAuthorization()
+const { currentUserCan } = usePolicies()
+const { handleHttpError } = useErrorHandler()
 
-const genres = ref<Genre[]>()
+const genres = ref<Genre[]>([])
+const keywords = ref('')
+const loading = ref(false)
 
-const libraryEmpty = computed(() => commonStore.state.song_length === 0)
-const mostPopular = computed(() => maxBy(genres.value, 'song_count'))
-const leastPopular = computed(() => minBy(genres.value, 'song_count'))
+const fuzzy = useFuzzySearch<Genre>(genres, ['name'])
 
-const levels = computed(() => {
-  const max = mostPopular.value?.song_count || 1
-  const min = leastPopular.value?.song_count || 1
-  const range = max - min
-  const step = range / 5
+provide(FilterKeywordsKey, keywords)
 
-  return [min, min + step, min + step * 2, min + step * 3, min + step * 4, max]
+const displayedGenres = computed(() => {
+  const all = keywords.value ? fuzzy.search(keywords.value) : genres.value
+
+  if (preferences.genres_sort_field === 'name') {
+    // if sorted by name, ensure 'No Genre' is always on top
+    return orderBy(
+      all,
+      [genre => genre.name ? 1 : 0, 'name'],
+      ['asc', preferences.genres_sort_order],
+    )
+  }
+
+  return orderBy(all, preferences.genres_sort_field, preferences.genres_sort_order)
 })
 
-const getLevel = (genre: Genre) => {
-  const index = levels.value.findIndex((level) => genre.song_count <= level)
-  return index === -1 ? 5 : index
+const libraryEmpty = computed(() => commonStore.state.song_length === 0)
+
+const fetchGenres = async () => {
+  if (loading.value) {
+    return
+  }
+
+  try {
+    loading.value = true
+    genres.value = await genreStore.fetchAll()
+  } catch (error: unknown) {
+    handleHttpError(error)
+  } finally {
+    loading.value = false
+  }
+}
+
+const sort = (field: GenreListSortField, order: SortOrder) => {
+  preferences.genres_sort_field = field
+  preferences.genres_sort_order = order
 }
 
 onMounted(async () => {
-  if (libraryEmpty.value) return
-  genres.value = await genreStore.fetchAll()
+  if (libraryEmpty.value) {
+    return
+  }
+
+  await fetchGenres()
 })
 </script>
 
-<style lang="scss" scoped>
-.genres {
-  text-align: center;
-
-  li {
-    display: inline-block;
-    border-radius: 999rem;
-    margin: .2rem;
-    font-size: var(--unit);
-    transition: opacity .2s ease-in-out, transform .2s ease-in-out;
-    vertical-align: middle;
-
-    &:hover {
-      transform: scale(1.1);
-      opacity: 1;
-    }
-
-    a {
-      background: rgba(255, 255, 255, .03);
-      display: inline-flex;
-      padding: calc(var(--unit) / 4) calc(var(--unit) / 4) calc(var(--unit) / 4) calc(var(--unit));
-      gap: 12px;
-      align-items: center;
-      border-radius: 999rem;
-      transition: background-color .2s ease-in-out, color .2s ease-in-out;
-
-      &:hover {
-        color: var(--color-text-primary);
-        background: var(--color-highlight);
-      }
-
-      &:active {
-        transform: translateX(2px) translateY(2px);
-      }
-    }
-
-    .count {
-      padding: calc(var(--unit) - 1rem) calc(var(--unit) / 2);
-      background: rgba(255, 255, 255, .1);
-      border-radius: 999rem;
-      font-size: calc(var(--unit) * 2 / 3);
-      box-shadow: 0 0 5px 0 rgba(0, 0, 0, .3);
-      min-width: calc(var(--unit) * 1.5);
-      text-align: center;
-    }
-  }
-
-  @for $i from 0 through 5 {
-    .level-#{$i} {
-      $zoom: 1 + $i * .4;
-      --unit: #{$zoom}rem;
-      opacity: .8 + $i * .04;
-    }
-  }
+<style lang="postcss">
+.genre-list {
+  content-visibility: auto;
 }
 </style>

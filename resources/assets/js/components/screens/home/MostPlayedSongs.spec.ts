@@ -1,20 +1,15 @@
-import { expect, it } from 'vitest'
-import { overviewStore } from '@/stores'
-import UnitTestCase from '@/__tests__/UnitTestCase'
-import factory from '@/__tests__/factory'
-import MostPlayedSongs from './MostPlayedSongs.vue'
+import { describe, expect, it } from 'vitest'
+import { createHarness } from '@/__tests__/TestHarness'
+import { overviewStore } from '@/stores/overviewStore'
+import { screen, waitFor } from '@testing-library/vue'
+import Component from './MostPlayedSongs.vue'
 
-new class extends UnitTestCase {
-  protected test () {
-    it('displays the songs', () => {
-      overviewStore.state.mostPlayedSongs = factory<Song>('song', 6)
-      expect(this.render(MostPlayedSongs, {
-        global: {
-          stubs: {
-            SongCard: this.stub('song-card')
-          }
-        }
-      }).getAllByTestId('song-card')).toHaveLength(6)
-    })
-  }
-}
+describe('mostPlayedSongs.vue', () => {
+  const h = createHarness()
+
+  it('displays the songs', async () => {
+    overviewStore.state.mostPlayedSongs = h.factory('song', 6)
+    h.render(Component)
+    await waitFor(() => expect(screen.getAllByTestId('song-item')).toHaveLength(6))
+  })
+})

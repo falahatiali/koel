@@ -1,76 +1,51 @@
 <template>
-  <article :class="mode" class="artist-info" data-testid="artist-info">
-    <h1 v-if="mode === 'aside'" class="name">
-      <span>{{ artist.name }}</span>
-      <button :title="`Play all songs by ${artist.name}`" class="control" type="button" @click.prevent="play">
-        <Icon :icon="faCirclePlay" size="xl" />
-      </button>
-    </h1>
+  <AlbumArtistInfo :mode="mode" data-testid="artist-info">
+    <template #header>{{ artist.name }}</template>
 
-    <main>
-      <ArtistThumbnail v-if="mode === 'aside'" :entity="artist" />
+    <template #art>
+      <ArtistThumbnail :entity="artist" class="group" />
+    </template>
 
-      <template v-if="info">
-        <div v-if="info.bio?.summary" class="bio">
-          <div v-if="showSummary" class="summary" data-testid="summary" v-html="info.bio.summary" />
-          <div v-if="showFull" class="full" data-testid="full" v-html="info.bio.full" />
+    <ParagraphSkeleton v-if="loading" />
 
-          <button v-if="showSummary" class="more" @click.prevent="showingFullBio = true">
-            Full Bio
-          </button>
-        </div>
+    <div v-if="!loading && info?.bio" v-html="info.bio.full" />
 
-        <footer>
-          Data &copy;
-          <a :href="info.url" rel="openener" target="_blank">Last.fm</a>
-        </footer>
-      </template>
-    </main>
-  </article>
+    <template v-if="info && !loading" #footer>
+      <a :href="info.url" rel="openener" target="_blank">Source</a>
+    </template>
+  </AlbumArtistInfo>
 </template>
 
 <script lang="ts" setup>
-import { faCirclePlay } from '@fortawesome/free-solid-svg-icons'
-import { computed, ref, toRefs, watch } from 'vue'
-import { mediaInfoService, playbackService } from '@/services'
-import { useRouter, useThirdPartyServices } from '@/composables'
-import { songStore } from '@/stores'
+import { ref, toRefs, watch } from 'vue'
+import { encyclopediaService } from '@/services/encyclopediaService'
+import { useThirdPartyServices } from '@/composables/useThirdPartyServices'
 
-import ArtistThumbnail from '@/components/ui/AlbumArtistThumbnail.vue'
+import ArtistThumbnail from '@/components/ui/album-artist/AlbumOrArtistThumbnail.vue'
+import AlbumArtistInfo from '@/components/ui/album-artist/AlbumOrArtistInfo.vue'
+import ParagraphSkeleton from '@/components/ui/ParagraphSkeleton.vue'
 
-const props = withDefaults(defineProps<{ artist: Artist, mode?: MediaInfoDisplayMode }>(), { mode: 'aside' })
+const props = withDefaults(defineProps<{ artist: Artist, mode?: EncyclopediaDisplayMode }>(), { mode: 'aside' })
 const { artist, mode } = toRefs(props)
 
-const { go } = useRouter()
-const { useLastfm, useSpotify } = useThirdPartyServices()
+const { useMusicBrainz, useLastfm, useSpotify } = useThirdPartyServices()
 
+const loading = ref(false)
 const info = ref<ArtistInfo | null>(null)
-const showingFullBio = ref(false)
 
 watch(artist, async () => {
-  showingFullBio.value = false
   info.value = null
 
-  if (useLastfm.value || useSpotify.value) {
-    info.value = await mediaInfoService.fetchForArtist(artist.value)
+  if (useMusicBrainz.value || useLastfm.value || useSpotify.value) {
+    loading.value = true
+    info.value = await encyclopediaService.fetchForArtist(artist.value)
+    loading.value = false
   }
 }, { immediate: true })
-
-const showSummary = computed(() => mode.value !== 'full' && !showingFullBio.value)
-const showFull = computed(() => !showSummary.value)
-
-const play = async () => {
-  playbackService.queueAndPlay(await songStore.fetchForArtist(artist.value))
-  go('queue')
-}
 </script>
 
-<style lang="scss" scoped>
-.artist-info {
-  @include artist-album-info();
-
-  .none {
-    margin-top: 1rem;
-  }
+<style lang="postcss" scoped>
+:deep(.play-icon) {
+  @apply scale-[3];
 }
 </style>

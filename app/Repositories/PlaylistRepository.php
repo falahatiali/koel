@@ -2,17 +2,22 @@
 
 namespace App\Repositories;
 
+use App\Facades\License;
 use App\Models\Playlist;
-use App\Repositories\Traits\ByCurrentUser;
+use App\Models\User;
 use Illuminate\Support\Collection;
 
+/** @extends Repository<Playlist> */
 class PlaylistRepository extends Repository
 {
-    use ByCurrentUser;
-
-    /** @return Collection|array<Playlist> */
-    public function getAllByCurrentUser(): Collection
+    /** @return Collection<Playlist>|array<array-key, Playlist> */
+    public function getAllAccessibleByUser(User $user): Collection
     {
-        return $this->byCurrentUser()->orderBy('name')->get();
+        $relation = License::isCommunity() ? $user->ownedPlaylists() : $user->playlists();
+
+        return $relation
+            ->leftJoin('playlist_playlist_folder', 'playlists.id', '=', 'playlist_playlist_folder.playlist_id')
+            ->distinct()
+            ->get(['playlists.*', 'playlist_playlist_folder.folder_id']);
     }
 }

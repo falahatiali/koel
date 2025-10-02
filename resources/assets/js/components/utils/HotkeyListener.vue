@@ -1,98 +1,62 @@
 <template>
-  <GlobalEvents
-    @keydown.space="togglePlayback"
-    @keydown.j="playNext"
-    @keydown.k="playPrev"
-    @keydown.f="search"
-    @keydown.l="toggleLike"
-  />
+  <slot />
 </template>
 
 <script lang="ts" setup>
-import { GlobalEvents } from 'vue-global-events'
-import { eventBus } from '@/utils'
-import { playbackService, socketService } from '@/services'
-import { favoriteStore, queueStore } from '@/stores'
+import type { KeyFilter } from '@vueuse/core'
+import { onKeyStroke as baseOnKeyStroke } from '@vueuse/core'
+import { eventBus } from '@/utils/eventBus'
+import { socketService } from '@/services/socketService'
+import { volumeManager } from '@/services/volumeManager'
+import { queueStore } from '@/stores/queueStore'
+import { useRouter } from '@/composables/useRouter'
+import { playableStore } from '@/stores/playableStore'
+import { playback } from '@/services/playbackManager'
 
-const togglePlayback = (e: KeyboardEvent) => {
-  if (
-    !(e.target instanceof Document) &&
-    (e.target as Element).matches('input, textarea, button, select') &&
-    !(e.target as Element).matches('input[type=range]')
-  ) {
-    return true
-  }
+const { isCurrentScreen, go, url } = useRouter()
 
-  e.preventDefault()
-  playbackService.toggle()
+const onKeyStroke = (key: KeyFilter, callback: (e: KeyboardEvent) => void) => {
+  baseOnKeyStroke(key, e => {
+    if (e.altKey || e.ctrlKey || e.metaKey) {
+      return
+    }
 
-  return false
+    if (e.target instanceof HTMLInputElement
+      || e.target instanceof HTMLTextAreaElement
+      || e.target instanceof HTMLButtonElement
+    ) {
+      return
+    }
+
+    const role = (e.target as HTMLElement).getAttribute('role')
+    if (role === 'button' || role === 'checkbox') {
+      return
+    }
+
+    e.preventDefault()
+    callback(e)
+  })
 }
 
-/**
- * Play the previous song when user presses K.
- */
-const playPrev = (e: KeyboardEvent) => {
-  if (!(e.target instanceof Document) && (e.target as Element).matches('input, select, textarea')) {
-    return true
-  }
+onKeyStroke('f', () => eventBus.emit('FOCUS_SEARCH_FIELD'))
+onKeyStroke('j', () => playback('current')?.playNext())
+onKeyStroke('k', () => playback('current')?.playPrev())
+onKeyStroke(' ', () => playback('current')?.toggle())
+onKeyStroke('r', () => playback('current')?.rotateRepeatMode())
+onKeyStroke('q', () => go(isCurrentScreen('Queue') ? -1 : url('queue')))
+onKeyStroke('h', () => go(url('home')))
 
-  e.preventDefault()
-  playbackService.playPrev()
+onKeyStroke('ArrowRight', () => playback('current')?.forward(10))
+onKeyStroke('ArrowLeft', () => playback('current')?.rewind(-10))
+onKeyStroke('ArrowUp', () => volumeManager.increase())
+onKeyStroke('ArrowDown', () => volumeManager.decrease())
+onKeyStroke('m', () => volumeManager.toggleMute())
 
-  return false
-}
-
-/**
- * Play the next song when user presses J.
- */
-const playNext = (e: KeyboardEvent) => {
-  if (!(e.target instanceof Document) && (e.target as Element).matches('input, select, textarea')) {
-    return true
-  }
-
-  e.preventDefault()
-  playbackService.playNext()
-
-  return false
-}
-
-/**
- * Put focus into the search field when user presses F.
- */
-const search = (e: KeyboardEvent) => {
-  if (
-    !(e.target instanceof Document) &&
-    (e.target as Element).matches('input, select, textarea') && !(e.target as Element).matches('input[type=range]')
-  ) {
-    return true
-  }
-
-  if (e.metaKey || e.ctrlKey) {
-    return true
-  }
-
-  e.preventDefault()
-  eventBus.emit('FOCUS_SEARCH_FIELD')
-
-  return false
-}
-
-/**
- * Like/unlike the current song when use presses L.
- */
-const toggleLike = (e: KeyboardEvent) => {
-  if (!(e.target instanceof Document) && (e.target as Element).matches('input, select, textarea')) {
-    return true
-  }
-
+onKeyStroke('l', () => {
   if (!queueStore.current) {
-    return false
+    return
   }
-
-  favoriteStore.toggleOne(queueStore.current)
-  socketService.broadcast('SOCKET_SONG', queueStore.current)
-
-  return false
-}
+  playableStore.toggleFavorite(queueStore.current)
+  socketService.broadcast('SOCKET_STREAMABLE', queueStore.current)
+})
 </script>

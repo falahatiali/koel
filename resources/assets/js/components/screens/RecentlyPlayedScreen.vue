@@ -1,76 +1,85 @@
 <template>
-  <section id="recentlyPlayedWrapper">
-    <ScreenHeader :layout="songs.length === 0 ? 'collapsed' : headerLayout">
-      Recently Played
-      <ControlsToggle v-model="showingControls" />
+  <ScreenBase>
+    <template #header>
+      <ScreenHeader :layout="playables.length === 0 ? 'collapsed' : headerLayout">
+        Recently Played
 
-      <template #thumbnail>
-        <ThumbnailStack :thumbnails="thumbnails" />
-      </template>
+        <template #thumbnail>
+          <ThumbnailStack :thumbnails="thumbnails" />
+        </template>
 
-      <template v-if="songs.length" #meta>
-        <span>{{ pluralize(songs, 'song') }}</span>
-        <span>{{ duration }}</span>
-      </template>
+        <template v-if="playables.length" #meta>
+          <span>{{ pluralize(playables, 'item') }}</span>
+          <span>{{ duration }}</span>
+        </template>
 
-      <template #controls>
-        <SongListControls
-          v-if="songs.length && (!isPhone || showingControls)"
-          @filter="applyFilter"
-          @play-all="playAll"
-          @play-selected="playSelected"
-        />
-      </template>
-    </ScreenHeader>
+        <template #controls>
+          <PlayableListControls
+            v-if="playables.length"
+            :config
+            @filter="applyFilter"
+            @play-all="playAll"
+            @play-selected="playSelected"
+          />
+        </template>
+      </ScreenHeader>
+    </template>
 
-    <SongListSkeleton v-if="loading" />
+    <PlayableListSkeleton v-if="loading" class="-m-6" />
 
-    <SongList v-if="songs.length" ref="songList" @press:enter="onPressEnter" @scroll-breakpoint="onScrollBreakpoint" />
+    <PlayableList
+      v-if="playables.length"
+      ref="playableList"
+      class="-m-6"
+      @press:enter="onPressEnter"
+      @swipe="onSwipe"
+    />
 
     <ScreenEmptyState v-else>
       <template #icon>
         <Icon :icon="faClock" />
       </template>
-      No songs recently played.
-      <span class="secondary d-block">Start playing to populate this playlist.</span>
+      Nothing played recently.
+      <span class="secondary block">Start playing to populate this playlist.</span>
     </ScreenEmptyState>
-  </section>
+  </ScreenBase>
 </template>
 
 <script lang="ts" setup>
 import { faClock } from '@fortawesome/free-regular-svg-icons'
-import { pluralize } from '@/utils'
-import { recentlyPlayedStore } from '@/stores'
-import { useRouter, useSongList } from '@/composables'
 import { ref, toRef } from 'vue'
+import { pluralize } from '@/utils/formatters'
+import { recentlyPlayedStore } from '@/stores/recentlyPlayedStore'
+import { useRouter } from '@/composables/useRouter'
+import { usePlayableList } from '@/composables/usePlayableList'
+import { usePlayableListControls } from '@/composables/usePlayableListControls'
 
 import ScreenHeader from '@/components/ui/ScreenHeader.vue'
 import ScreenEmptyState from '@/components/ui/ScreenEmptyState.vue'
-import SongListSkeleton from '@/components/ui/skeletons/SongListSkeleton.vue'
+import ScreenBase from '@/components/screens/ScreenBase.vue'
+import PlayableListSkeleton from '@/components/playable/playable-list/PlayableListSkeleton.vue'
 
-const recentlyPlayedSongs = toRef(recentlyPlayedStore.state, 'songs')
+const recentlyPlayedSongs = toRef(recentlyPlayedStore.state, 'playables')
 
 const {
-  SongList,
-  SongListControls,
-  ControlsToggle,
+  PlayableList,
   ThumbnailStack,
   headerLayout,
-  songs,
-  songList,
+  playables,
+  playableList,
   thumbnails,
   duration,
-  showingControls,
-  isPhone,
   onPressEnter,
   playAll,
   playSelected,
   applyFilter,
-  onScrollBreakpoint
-} = useSongList(recentlyPlayedSongs)
+  onSwipe,
+} = usePlayableList(recentlyPlayedSongs, { type: 'RecentlyPlayed' }, { sortable: false })
+
+const { PlayableListControls, config } = usePlayableListControls('RecentlyPlayed')
 
 let initialized = false
-let loading = ref(false)
+const loading = ref(false)
 
 useRouter().onScreenActivated('RecentlyPlayed', async () => {
   if (!initialized) {

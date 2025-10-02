@@ -2,36 +2,21 @@
 
 namespace App\Http\Requests\API;
 
-use App\Rules\ImageData;
+use App\Rules\ValidImageData;
 
 abstract class MediaImageUpdateRequest extends Request
 {
-    public function authorize(): bool
-    {
-        return auth()->user()->is_admin;
-    }
-
-    /** @return array<mixed> */
+    /** @inheritdoc */
     public function rules(): array
     {
         return [
-            $this->getImageFieldName() => ['string', 'required', new ImageData()],
+            $this->getImageFieldName() => ['string', 'required', new ValidImageData()],
         ];
     }
 
-    public function getFileContentAsBinaryString(): string
+    public function getFileContent(): string
     {
-        [, $data] = explode(',', $this->{$this->getImageFieldName()});
-
-        return base64_decode($data, true);
-    }
-
-    public function getFileExtension(): string
-    {
-        [$type,] = explode(';', $this->{$this->getImageFieldName()});
-        [, $extension] = explode('/', $type);
-
-        return $extension;
+        return $this->{$this->getImageFieldName()};
     }
 
     abstract protected function getImageFieldName(): string;

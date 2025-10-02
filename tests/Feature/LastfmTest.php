@@ -2,44 +2,47 @@
 
 namespace Tests\Feature;
 
-use App\Models\User;
 use App\Services\LastfmService;
 use App\Services\TokenManager;
 use Laravel\Sanctum\NewAccessToken;
 use Laravel\Sanctum\PersonalAccessToken;
 use Mockery;
 use Mockery\MockInterface;
+use PHPUnit\Framework\Attributes\Test;
+use Tests\TestCase;
+
+use function Tests\create_user;
 
 class LastfmTest extends TestCase
 {
-    public function testSetSessionKey(): void
+    #[Test]
+    public function setSessionKey(): void
     {
-        /** @var User $user */
-        $user = User::factory()->create();
+        $user = create_user();
         $this->postAs('api/lastfm/session-key', ['key' => 'foo'], $user)
             ->assertNoContent();
 
-        self::assertSame('foo', $user->refresh()->lastfm_session_key);
+        self::assertSame('foo', $user->refresh()->preferences->lastFmSessionKey);
     }
 
-    public function testConnectToLastfm(): void
+    #[Test]
+    public function connectToLastfm(): void
     {
-        /** @var User $user */
-        $user = User::factory()->create();
+        $user = create_user();
         $token = $user->createToken('Koel')->plainTextToken;
 
         /** @var NewAccessToken|MockInterface $temporaryToken */
         $temporaryToken = Mockery::mock(NewAccessToken::class);
         $temporaryToken->plainTextToken = 'tmp-token';
 
-        $tokenManager = self::mock(TokenManager::class);
+        /** @var TokenManager|MockInterface $tokenManager */
+        $tokenManager = $this->mock(TokenManager::class);
 
-        $tokenManager->shouldReceive('getUserFromPlainTextToken')
+        $tokenManager->expects('getUserFromPlainTextToken')
             ->with($token)
             ->andReturn($user);
 
-        $tokenManager->shouldReceive('createToken')
-            ->once()
+        $tokenManager->expects('createToken')
             ->with($user)
             ->andReturn($temporaryToken);
 
@@ -49,19 +52,19 @@ class LastfmTest extends TestCase
             );
     }
 
+    #[Test]
     public function testCallback(): void
     {
-        /** @var User $user */
-        $user = User::factory()->create();
+        $user = create_user();
         $token = $user->createToken('Koel')->plainTextToken;
 
         self::assertNotNull(PersonalAccessToken::findToken($token));
 
+        /** @var LastfmService|MockInterface $lastfm */
         $lastfm = Mockery::mock(LastfmService::class)->makePartial();
 
-        $lastfm->shouldReceive('getSessionKey')
+        $lastfm->expects('getSessionKey')
             ->with('lastfm-token')
-            ->once()
             ->andReturn('my-session-key');
 
         app()->instance(LastfmService::class, $lastfm);
@@ -69,45 +72,47 @@ class LastfmTest extends TestCase
         $this->get('lastfm/callback?token=lastfm-token&api_token=' . urlencode($token))
             ->assertOk();
 
-        self::assertSame('my-session-key', $user->refresh()->lastfm_session_key);
+        self::assertSame('my-session-key', $user->refresh()->preferences->lastFmSessionKey);
         // make sure the user's api token is deleted
         self::assertNull(PersonalAccessToken::findToken($token));
     }
 
-    public function testRetrieveAndStoreSessionKey(): void
+    #[Test]
+    public function retrieveAndStoreSessionKey(): void
     {
-        /** @var User $user */
-        $user = User::factory()->create();
+        $user = create_user();
 
+        /** @var LastfmService|MockInterface $lastfm */
         $lastfm = Mockery::mock(LastfmService::class)->makePartial();
 
-        $lastfm->shouldReceive('getSessionKey')
-            ->once()
+        $lastfm->expects('getSessionKey')
             ->with('foo')
             ->andReturn('my-session-key');
 
         app()->instance(LastfmService::class, $lastfm);
 
-        $tokenManager = self::mock(TokenManager::class);
+        $tokenManager = $this->mock(TokenManager::class);
 
-        $tokenManager->shouldReceive('getUserFromPlainTextToken')
-            ->once()
+        $tokenManager->expects('getUserFromPlainTextToken')
             ->with('my-token')
             ->andReturn($user);
 
+        $tokenManager->expects('deleteTokenByPlainTextToken');
+
         $this->get('lastfm/callback?token=foo&api_token=my-token');
 
-        self::assertSame('my-session-key', $user->refresh()->lastfm_session_key);
+        self::assertSame('my-session-key', $user->refresh()->preferences->lastFmSessionKey);
     }
 
-    public function testDisconnectUser(): void
+    #[Test]
+    public function disconnectUser(): void
     {
-        /** @var User $user */
-        $user = User::factory()->create();
-        self::assertNotNull($user->lastfm_session_key);
-        $this->deleteAs('api/lastfm/disconnect', [], $user);
-        $user->refresh();
+        $user = create_user();
+        self::assertNotNull($user->preferences->lastFmSessionKey);
 
-        self::assertNull($user->lastfm_session_key);
+        $this->deleteAs('api/lastfm/disconnect', [], $user);
+
+        $user->refresh();
+        self::assertNull($user->preferences->lastFmSessionKey);
     }
 }

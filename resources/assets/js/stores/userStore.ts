@@ -1,22 +1,9 @@
-import { differenceBy, merge } from 'lodash'
-import { http } from '@/services'
 import { reactive } from 'vue'
-import { arrayify } from '@/utils'
-import { UnwrapNestedRefs } from '@vue/reactivity'
+import { differenceBy, merge } from 'lodash'
+import { http } from '@/services/http'
+import { arrayify } from '@/utils/helpers'
 
-export interface UpdateCurrentProfileData {
-  current_password: string | null
-  name: string
-  email: string
-  avatar?: string
-  new_password?: string
-}
-
-interface UserFormData {
-  name: string
-  email: string
-  is_admin: boolean
-}
+type UserFormData = Pick<User, 'name' | 'email' | 'role'>
 
 export interface CreateUserData extends UserFormData {
   password: string
@@ -27,14 +14,14 @@ export interface UpdateUserData extends UserFormData {
 }
 
 export const userStore = {
-  vault: new Map<number, UnwrapNestedRefs<User>>(),
+  vault: new Map<User['id'], User>(),
 
   state: reactive({
     users: [] as User[],
-    current: null as unknown as User
+    current: null! as CurrentUser,
   }),
 
-  syncWithVault (users: User | User[]) {
+  syncWithVault (users: MaybeArray<User>) {
     return arrayify(users).map(user => {
       let local = this.byId(user.id)
       local = reactive(local ? merge(local, user) : user)
@@ -44,29 +31,21 @@ export const userStore = {
     })
   },
 
-  init (currentUser: User) {
+  init (currentUser: CurrentUser) {
     this.state.users = this.syncWithVault(currentUser)
-    this.state.current = this.state.users[0]
+    this.state.current = this.state.users[0] as CurrentUser
   },
 
   async fetch () {
     this.state.users = this.syncWithVault(await http.get<User[]>('users'))
   },
 
-  byId (id: number) {
+  byId (id: User['id']) {
     return this.vault.get(id)
   },
 
   get current () {
-    return this.state.current
-  },
-
-  login: async (email: string, password: string) => await http.post<User>('me', { email, password }),
-  logout: async () => await http.delete('me'),
-  getProfile: async () => await http.get<User>('me'),
-
-  async updateProfile (data: UpdateCurrentProfileData) {
-    merge(this.current, (await http.put<User>('me', data)))
+    return this.state.current as CurrentUser
   },
 
   async store (data: CreateUserData) {
@@ -75,7 +54,7 @@ export const userStore = {
     return this.byId(user.id)
   },
 
-  add (user: User) {
+  add (user: MaybeArray<User>) {
     this.state.users.push(...this.syncWithVault(user))
   },
 
@@ -110,5 +89,5 @@ export const userStore = {
   remove (user: User) {
     this.state.users = differenceBy(this.state.users, [user], 'id')
     this.vault.delete(user.id)
-  }
+  },
 }

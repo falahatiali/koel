@@ -2,51 +2,43 @@
 
 namespace Tests\Feature;
 
-use App\Events\LibraryChanged;
+use App\Helpers\Ulid;
 use App\Models\Artist;
-use App\Models\User;
-use App\Services\MediaMetadataService;
-use Mockery;
-use Mockery\MockInterface;
+use Illuminate\Support\Facades\File;
+use PHPUnit\Framework\Attributes\Test;
+use Tests\TestCase;
+
+use function Tests\create_admin;
 
 class ArtistImageTest extends TestCase
 {
-    private MediaMetadataService|MockInterface $mediaMetadataService;
-
-    public function setUp(): void
+    #[Test]
+    public function destroy(): void
     {
-        parent::setUp();
+        $file = Ulid::generate() . '.jpg';
+        File::put(image_storage_path($file), 'foo');
 
-        $this->mediaMetadataService = self::mock(MediaMetadataService::class);
+        /** @var Artist $artist */
+        $artist = Artist::factory()->create([
+            'image' => $file,
+        ]);
+
+        $this->deleteAs("api/artists/{$artist->id}/image", [], create_admin())
+            ->assertNoContent();
+
+        self::assertNull($artist->refresh()->image);
+        self::assertFileDoesNotExist(image_storage_path($file));
     }
 
-    public function testUpdate(): void
+    #[Test]
+    public function destroyNotAllowedForNormalUser(): void
     {
-        $this->expectsEvents(LibraryChanged::class);
+        /** @var Artist $artist */
+        $artist = Artist::factory()->create();
 
-        /** @var User $admin */
-        $admin = User::factory()->admin()->create();
-
-        Artist::factory()->create(['id' => 9999]);
-
-        $this->mediaMetadataService
-            ->shouldReceive('writeArtistImage')
-            ->once()
-            ->with(Mockery::on(static fn (Artist $artist) => $artist->id === 9999), 'Foo', 'jpeg');
-
-        $this->putAs('api/artist/9999/image', ['image' => 'data:image/jpeg;base64,Rm9v'], $admin)
-            ->assertOk();
-    }
-
-    public function testUpdateNotAllowedForNormalUsers(): void
-    {
-        Artist::factory()->create(['id' => 9999]);
-
-        $this->mediaMetadataService
-            ->shouldReceive('writeArtistImage')
-            ->never();
-
-        $this->putAs('api/artist/9999/image', ['image' => 'data:image/jpeg;base64,Rm9v'])
+        $this->deleteAs("api/artists/{$artist->id}/image")
             ->assertForbidden();
+
+        self::assertNotNull($artist->refresh()->image);
     }
 }

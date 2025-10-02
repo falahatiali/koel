@@ -4,9 +4,11 @@ namespace Tests\Integration\Services;
 
 use App\Models\QueueState;
 use App\Models\Song;
-use App\Models\User;
 use App\Services\QueueService;
+use PHPUnit\Framework\Attributes\Test;
 use Tests\TestCase;
+
+use function Tests\create_user;
 
 class QueueServiceTest extends TestCase
 {
@@ -19,7 +21,8 @@ class QueueServiceTest extends TestCase
         $this->service = app(QueueService::class);
     }
 
-    public function testGetQueueState(): void
+    #[Test]
+    public function getQueueState(): void
     {
         /** @var Song $currentSong */
         $currentSong = Song::factory()->create();
@@ -32,36 +35,37 @@ class QueueServiceTest extends TestCase
 
         $dto = $this->service->getQueueState($state->user);
 
-        self::assertEqualsCanonicalizing($state->song_ids, $dto->songs->pluck('id')->toArray());
-        self::assertSame($currentSong->id, $dto->currentSong->id);
+        self::assertEqualsCanonicalizing($state->song_ids, $dto->playables->pluck('id')->toArray());
+        self::assertSame($currentSong->id, $dto->currentPlayable->id);
         self::assertSame(123, $dto->playbackPosition);
     }
 
-    public function testCreateQueueState(): void
+    #[Test]
+    public function createQueueState(): void
     {
-        /** @var User $user */
-        $user = User::factory()->create();
+        $user = create_user();
 
         $this->assertDatabaseMissing(QueueState::class, [
             'user_id' => $user->id,
         ]);
 
-        $songIds = Song::factory()->count(3)->create()->pluck('id')->toArray();
+        $songIds = Song::factory()->count(2)->create()->modelKeys();
         $this->service->updateQueueState($user, $songIds);
 
         /** @var QueueState $queueState */
-        $queueState = QueueState::query()->where('user_id', $user->id)->firstOrFail();
+        $queueState = QueueState::query()->whereBelongsTo($user)->firstOrFail();
         self::assertEqualsCanonicalizing($songIds, $queueState->song_ids);
         self::assertNull($queueState->current_song_id);
         self::assertSame(0, $queueState->playback_position);
     }
 
-    public function testUpdateQueueState(): void
+    #[Test]
+    public function updateQueueState(): void
     {
         /** @var QueueState $state */
         $state = QueueState::factory()->create();
 
-        $songIds = Song::factory()->count(3)->create()->pluck('id')->toArray();
+        $songIds = Song::factory()->count(2)->create()->modelKeys();
         $this->service->updateQueueState($state->user, $songIds);
 
         $state->refresh();
@@ -71,7 +75,8 @@ class QueueServiceTest extends TestCase
         self::assertEquals(0, $state->playback_position);
     }
 
-    public function testUpdatePlaybackStatus(): void
+    #[Test]
+    public function updatePlaybackStatus(): void
     {
         /** @var QueueState $state */
         $state = QueueState::factory()->create();
@@ -79,7 +84,7 @@ class QueueServiceTest extends TestCase
         /** @var Song $song */
         $song = Song::factory()->create();
 
-        $this->service->updatePlaybackStatus($state->user, $song->id, 123);
+        $this->service->updatePlaybackStatus($state->user, $song, 123);
         $state->refresh();
 
         self::assertSame($song->id, $state->current_song_id);

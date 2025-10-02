@@ -1,7 +1,7 @@
 import Sketch from 'sketch-js'
-import { audioService } from '@/services'
 import { random, sample } from 'lodash'
-import { noop } from '@/utils'
+import { audioService } from '@/services/audioService'
+import { noop } from '@/utils/helpers'
 
 const NUM_PARTICLES = 128
 const NUM_BANDS = 128
@@ -24,7 +24,7 @@ const COLORS = [
   '#FF4E50',
   '#E7204E',
   '#0CCABA',
-  '#FF006F'
+  '#FF006F',
 ] as const
 
 type Color = typeof COLORS[number]
@@ -166,7 +166,7 @@ export const init = (container: HTMLElement) => {
     draw () {
       this.globalCompositeOperation = 'lighter'
 
-      particles.map(particle => {
+      particles.forEach(particle => {
         if (particle.y < (-particle.size * particle.level * particle.scale * 2)) {
           particle.reset()
           particle.x = random(this.width)
@@ -176,7 +176,7 @@ export const init = (container: HTMLElement) => {
         particle.move()
         particle.draw(this as CanvasRenderingContext2D)
       })
-    }
+    },
   })
 
   return noop

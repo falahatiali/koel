@@ -1,58 +1,61 @@
 import { ref } from 'vue'
-import { expect, it } from 'vitest'
-import factory from '@/__tests__/factory'
-import UnitTestCase from '@/__tests__/UnitTestCase'
-import { CurrentSongKey } from '@/symbols'
-import { playbackService } from '@/services'
+import { describe, expect, it } from 'vitest'
 import { screen } from '@testing-library/vue'
-import FooterPlaybackControls from './FooterPlaybackControls.vue'
+import { createHarness } from '@/__tests__/TestHarness'
+import { CurrentStreamableKey } from '@/symbols'
+import { playbackService } from '@/services/QueuePlaybackService'
+import Component from './FooterPlaybackControls.vue'
 
-new class extends UnitTestCase {
-  private renderComponent (song?: Song | null) {
-    if (song === undefined) {
-      song = factory<Song>('song', {
+describe('footerPlaybackControls.vue', () => {
+  const h = createHarness()
+
+  const renderComponent = (playable?: Playable | null) => {
+    if (playable === undefined) {
+      playable = h.factory('song', {
         id: '00000000-0000-0000-0000-000000000000',
         title: 'Fahrstuhl to Heaven',
         artist_name: 'Led Zeppelin',
-        artist_id: 3,
+        artist_id: 'led-zeppelin',
         album_name: 'Led Zeppelin IV',
-        album_id: 4,
-        liked: true
+        album_id: 'iv',
+        favorite: true,
       })
     }
 
-    return this.render(FooterPlaybackControls, {
+    return h.render(Component, {
       global: {
         stubs: {
-          PlayButton: this.stub('PlayButton')
+          PlayButton: h.stub('PlayButton'),
         },
         provide: {
-          [<symbol>CurrentSongKey]: ref(song)
-        }
-      }
+          [<symbol>CurrentStreamableKey]: ref(playable),
+        },
+      },
     })
   }
 
-  protected test () {
-    it('renders without a current song', () => expect(this.renderComponent(null).html()).toMatchSnapshot())
-    it('renders with a current song', () => expect(this.renderComponent().html()).toMatchSnapshot())
+  it('renders without a current playable', () => expect(renderComponent(null).html()).toMatchSnapshot())
+  it('renders with a current playable', () => expect(renderComponent().html()).toMatchSnapshot())
 
-    it('plays the previous song', async () => {
-      const playMock = this.mock(playbackService, 'playPrev')
-      this.renderComponent()
+  it('plays the previous playable', async () => {
+    h.createAudioPlayer()
 
-      await this.user.click(screen.getByRole('button', { name: 'Play previous song' }))
+    const playMock = h.mock(playbackService, 'playPrev')
+    renderComponent()
 
-      expect(playMock).toHaveBeenCalled()
-    })
+    await h.user.click(screen.getByRole('button', { name: 'Play previous in queue' }))
 
-    it('plays the next song', async () => {
-      const playMock = this.mock(playbackService, 'playNext')
-      this.renderComponent()
+    expect(playMock).toHaveBeenCalled()
+  })
 
-      await this.user.click(screen.getByRole('button', { name: 'Play next song' }))
+  it('plays the next playable', async () => {
+    h.createAudioPlayer()
 
-      expect(playMock).toHaveBeenCalled()
-    })
-  }
-}
+    const playMock = h.mock(playbackService, 'playNext')
+    renderComponent()
+
+    await h.user.click(screen.getByRole('button', { name: 'Play next in queue' }))
+
+    expect(playMock).toHaveBeenCalled()
+  })
+})

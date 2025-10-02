@@ -1,35 +1,39 @@
 <template>
   <div
-    class="track-list-item"
     :class="{ active, available: matchedSong }"
     :title="tooltip"
+    class="track-list-item flex flex-1 gap-1"
     tabindex="0"
     @click="play"
   >
-    <span class="title">{{ track.title }}</span>
+    <span class="flex-1">{{ track.title }}</span>
     <AppleMusicButton v-if="useAppleMusic && !matchedSong" :url="iTunesUrl" />
-    <span class="length">{{ fmtLength }}</span>
+    <span class="w-14 text-right opacity-50">{{ fmtLength }}</span>
   </div>
 </template>
 
 <script lang="ts" setup>
-import { computed, defineAsyncComponent, Ref, toRefs } from 'vue'
-import { queueStore, songStore } from '@/stores'
-import { authService, playbackService } from '@/services'
-import { useThirdPartyServices } from '@/composables'
-import { requireInjection, secondsToHis } from '@/utils'
-import { SongsKey } from '@/symbols'
+import type { Ref } from 'vue'
+import { computed, defineAsyncComponent, toRefs } from 'vue'
+import { playableStore } from '@/stores/playableStore'
+import { authService } from '@/services/authService'
+import { useThirdPartyServices } from '@/composables/useThirdPartyServices'
+import { requireInjection } from '@/utils/helpers'
+import { secondsToHis } from '@/utils/formatters'
+import { PlayablesKey } from '@/symbols'
+import { playback } from '@/services/playbackManager'
+
+const props = defineProps<{ album: Album, track: AlbumTrack }>()
 
 const AppleMusicButton = defineAsyncComponent(() => import('@/components/ui/AppleMusicButton.vue'))
 
-const props = defineProps<{ album: Album, track: AlbumTrack }>()
 const { album, track } = toRefs(props)
 
 const { useAppleMusic } = useThirdPartyServices()
 
-const songsToMatchAgainst = requireInjection<Ref<Song[]>>(SongsKey)
+const songsToMatchAgainst = requireInjection<Ref<Song[]>>(PlayablesKey)
 
-const matchedSong = computed(() => songStore.match(track.value.title, songsToMatchAgainst.value))
+const matchedSong = computed(() => playableStore.matchSongsByTitle(track.value.title, songsToMatchAgainst.value))
 const tooltip = computed(() => matchedSong.value ? 'Click to play' : '')
 const fmtLength = computed(() => secondsToHis(track.value.length))
 
@@ -39,42 +43,23 @@ const iTunesUrl = computed(() => {
   return `${window.BASE_URL}itunes/song/${album.value.id}?q=${encodeURIComponent(track.value.title)}&api_token=${authService.getApiToken()}`
 })
 
-const play = () => {
-  if (matchedSong.value) {
-    queueStore.queueIfNotQueued(matchedSong.value)
-    playbackService.play(matchedSong.value)
-  }
-}
+const play = () => matchedSong.value && playback().play(matchedSong.value)
 </script>
 
-<style lang="scss" scoped>
+<style lang="postcss" scoped>
 .track-list-item {
-  display: flex;
-  flex: 1;
-  gap: 4px;
-
-  &:focus, &.active {
+  &:focus,
+  &.active {
     span.title {
-      color: var(--color-highlight);
+      @apply text-k-highlight;
     }
   }
 
-  .title {
-    flex: 1;
-  }
-
-  .length {
-    flex: 0 0 44px;
-    text-align: right;
-    opacity: .5;
-  }
-
   &.available {
-    color: var(--color-text-primary);
-    cursor: pointer;
+    @apply cursor-pointer text-k-text-primary;
 
     &:hover {
-      color: var(--color-highlight);
+      @apply text-k-highlight;
     }
   }
 }

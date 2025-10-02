@@ -1,23 +1,21 @@
 import { waitFor } from '@testing-library/vue'
-import { expect, it } from 'vitest'
-import UnitTestCase from '@/__tests__/UnitTestCase'
-import { playbackService, volumeManager } from '@/services'
-import { preferenceStore } from '@/stores'
+import { describe, expect, it } from 'vitest'
+import { createHarness } from '@/__tests__/TestHarness'
+import { playbackService } from '@/services/QueuePlaybackService'
+import { preferenceStore } from '@/stores/preferenceStore'
+import { playbackManager } from '@/services/playbackManager'
 import Component from './index.vue'
 
-new class extends UnitTestCase {
-  protected test () {
-    it('initializes playback services', async () => {
-      const initPlaybackMock = this.mock(playbackService, 'init')
-      const initVolumeMock = this.mock(volumeManager, 'init')
+describe('index.vue', () => {
+  const h = createHarness()
 
-      this.render(Component)
-      preferenceStore.initialized.value = true
+  it('initializes playback and related services', async () => {
+    h.createAudioPlayer()
+    const useQueuePlaybackMock = h.mock(playbackManager, 'useQueuePlayback').mockReturnValue(playbackService)
 
-      await waitFor(() => {
-        expect(initPlaybackMock).toHaveBeenCalled()
-        expect(initVolumeMock).toHaveBeenCalled()
-      })
-    })
-  }
-}
+    h.render(Component)
+    preferenceStore.initialized.value = true
+
+    await waitFor(() => expect(useQueuePlaybackMock).toHaveBeenCalled())
+  })
+})

@@ -1,16 +1,16 @@
 import compareVersions from 'compare-versions'
 import { computed, toRef } from 'vue'
-import { commonStore } from '@/stores'
-import { useAuthorization } from '@/composables/useAuthorization'
+import { commonStore } from '@/stores/commonStore'
+import { usePolicies } from '@/composables/usePolicies'
 
 export const useNewVersionNotification = () => {
-  const { isAdmin } = useAuthorization()
+  const { currentUserCan } = usePolicies()
 
   const latestVersion = toRef(commonStore.state, 'latest_version')
   const currentVersion = toRef(commonStore.state, 'current_version')
 
   const hasNewVersion = computed(() => compareVersions.compare(latestVersion.value, currentVersion.value, '>'))
-  const shouldNotifyNewVersion = computed(() => isAdmin.value && hasNewVersion.value)
+  const shouldNotifyNewVersion = computed(() => currentUserCan.manageSettings() && hasNewVersion.value)
 
   const latestVersionReleaseUrl = computed(() => {
     return `https://github.com/koel/koel/releases/tag/${latestVersion.value}`
@@ -20,6 +20,6 @@ export const useNewVersionNotification = () => {
     shouldNotifyNewVersion,
     currentVersion,
     latestVersion,
-    latestVersionReleaseUrl
+    latestVersionReleaseUrl,
   }
 }

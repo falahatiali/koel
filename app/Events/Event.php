@@ -2,14 +2,16 @@
 
 namespace App\Events;
 
-abstract class Event
+use Illuminate\Broadcasting\Channel;
+use Illuminate\Contracts\Broadcasting\ShouldBroadcast;
+use Illuminate\Contracts\Events\ShouldDispatchAfterCommit;
+use Illuminate\Queue\SerializesModels;
+
+abstract class Event implements ShouldBroadcast, ShouldDispatchAfterCommit
 {
-    /**
-     * Get the channels the event should be broadcast on.
-     *
-     * @return array<mixed>
-     */
-    public function broadcastOn(): array
+    use SerializesModels;
+
+    public function broadcastOn(): array|Channel|null
     {
         return [];
     }

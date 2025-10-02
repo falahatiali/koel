@@ -3,31 +3,25 @@
 namespace Tests\Feature;
 
 use App\Models\Artist;
-use App\Services\MediaInformationService;
-use App\Values\ArtistInformation;
+use App\Services\EncyclopediaService;
+use App\Values\Artist\ArtistInformation;
 use Mockery;
+use PHPUnit\Framework\Attributes\Test;
+use Tests\TestCase;
 
 class ArtistInformationTest extends TestCase
 {
-    private const JSON_STRUCTURE = [
-        'url',
-        'image',
-        'bio' => [
-            'summary',
-            'full',
-        ],
-    ];
-
-    public function testGet(): void
+    #[Test]
+    public function getInformation(): void
     {
-        config(['koel.lastfm.key' => 'foo']);
-        config(['koel.lastfm.secret' => 'geheim']);
+        config(['koel.services.lastfm.key' => 'foo']);
+        config(['koel.services.lastfm.secret' => 'geheim']);
 
         /** @var Artist $artist */
         $artist = Artist::factory()->create();
 
-        $lastfm = self::mock(MediaInformationService::class);
-        $lastfm->shouldReceive('getArtistInformation')
+        $lastfm = $this->mock(EncyclopediaService::class);
+        $lastfm->expects('getArtistInformation')
             ->with(Mockery::on(static fn (Artist $a) => $a->is($artist)))
             ->andReturn(ArtistInformation::make(
                 url: 'https://lastfm.com/artist/foo',
@@ -38,19 +32,17 @@ class ArtistInformationTest extends TestCase
                 ],
             ));
 
-        $this->getAs('api/artists/' . $artist->id . '/information')
-            ->assertJsonStructure(self::JSON_STRUCTURE);
+        $this->getAs("api/artists/{$artist->id}/information")
+            ->assertJsonStructure(ArtistInformation::JSON_STRUCTURE);
     }
 
-    public function testGetWithoutLastfmStillReturnsValidStructure(): void
+    #[Test]
+    public function getWithoutLastfmStillReturnsValidStructure(): void
     {
-        config(['koel.lastfm.key' => null]);
-        config(['koel.lastfm.secret' => null]);
+        config(['koel.services.lastfm.key' => null]);
+        config(['koel.services.lastfm.secret' => null]);
 
-        /** @var Artist $artist */
-        $artist = Artist::factory()->create();
-
-        $this->getAs('api/artists/' . $artist->id . '/information')
-            ->assertJsonStructure(self::JSON_STRUCTURE);
+        $this->getAs('api/artists/' . Artist::factory()->create()->id . '/information')
+            ->assertJsonStructure(ArtistInformation::JSON_STRUCTURE);
     }
 }

@@ -2,6 +2,11 @@
 
 namespace App\Http\Requests\API;
 
+use App\Enums\Acl\Role;
+use App\Rules\AvailableRole;
+use App\Rules\UserCanManageRole;
+use App\Values\User\UserCreateData;
+use Illuminate\Validation\Rule;
 use Illuminate\Validation\Rules\Password;
 
 /**
@@ -11,14 +16,29 @@ use Illuminate\Validation\Rules\Password;
  */
 class UserStoreRequest extends Request
 {
-    /** @return array<mixed> */
+    /** @inheritdoc */
     public function rules(): array
     {
         return [
             'name' => 'required',
             'email' => 'required|email|unique:users',
             'password' => ['required', Password::defaults()],
-            'is_admin' => 'sometimes',
+            'role' => [
+                'required',
+                Rule::enum(Role::class),
+                new AvailableRole(),
+                new UserCanManageRole($this->user()),
+            ],
         ];
+    }
+
+    public function toDto(): UserCreateData
+    {
+        return UserCreateData::make(
+            name: $this->name,
+            email: $this->email,
+            plainTextPassword: $this->password,
+            role: $this->enum('role', Role::class),
+        );
     }
 }

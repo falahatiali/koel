@@ -1,37 +1,39 @@
-import factory from 'factoria'
-import { expect, it } from 'vitest'
-import { screen, waitFor } from '@testing-library/vue'
-import UnitTestCase from '@/__tests__/UnitTestCase'
-import { userStore } from '@/stores'
+import { describe, expect, it } from 'vitest'
+import { screen } from '@testing-library/vue'
+import { createHarness } from '@/__tests__/TestHarness'
 import { MessageToasterStub } from '@/__tests__/stubs'
-import ProfileForm from './ProfileForm.vue'
+import { authService } from '@/services/authService'
+import Component from './ProfileForm.vue'
 
-new class extends UnitTestCase {
-  private async renderComponent (user: User) {
-    return this.actingAs(user).render(ProfileForm)
+describe('profileForm.vue', () => {
+  const h = createHarness()
+
+  const renderComponent = (user: User) => {
+    return h.actingAsUser(user).render(Component)
   }
 
-  protected test () {
-    it('updates profile', async () => {
-      const updateMock = this.mock(userStore, 'updateProfile')
-      const alertMock = this.mock(MessageToasterStub.value, 'success')
+  it('updates profile', async () => {
+    const updateMock = h.mock(authService, 'updateProfile')
+    const alertMock = h.mock(MessageToasterStub.value, 'success')
 
-      await this.renderComponent(factory<User>('user'))
+    renderComponent(h.factory('user', {
+      avatar: 'https://gravatar.com/foo',
+    }))
 
-      await this.type(screen.getByTestId('currentPassword'), 'old-password')
-      await this.type(screen.getByTestId('email'), 'koel@example.com')
-      await this.type(screen.getByTestId('name'), 'Koel User')
-      await this.type(screen.getByTestId('newPassword'), 'new-password')
-      await this.user.click(screen.getByRole('button', { name: 'Save' }))
+    await h.type(screen.getByTestId('currentPassword'), 'old-password')
+    await h.type(screen.getByTestId('email'), 'koel@example.com')
+    await h.type(screen.getByTestId('name'), 'Koel User')
+    await h.type(screen.getByTestId('newPassword'), 'new-password')
+    await h.user.click(screen.getByRole('button', { name: 'Save' }))
 
-      expect(updateMock).toHaveBeenCalledWith({
-        name: 'Koel User',
-        email: 'koel@example.com',
-        current_password: 'old-password',
-        new_password: 'new-password',
-      })
-
-      expect(alertMock).toHaveBeenCalledWith('Profile updated.')
+    expect(updateMock).toHaveBeenCalledWith({
+      name: 'Koel User',
+      email: 'koel@example.com',
+      current_password: 'old-password',
+      new_password: 'new-password',
+      avatar: 'https://gravatar.com/foo',
     })
-  }
-}
+
+    expect(alertMock).toHaveBeenCalledWith('Profile updated.')
+  })
+})

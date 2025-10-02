@@ -1,19 +1,19 @@
+import { describe, expect, it } from 'vitest'
 import { waitFor } from '@testing-library/vue'
-import { expect, it } from 'vitest'
-import UnitTestCase from '@/__tests__/UnitTestCase'
-import { searchStore } from '@/stores'
-import { eventBus } from '@/utils'
-import SearchExceptsScreen from './SearchExcerptsScreen.vue'
+import { createHarness } from '@/__tests__/TestHarness'
+import { eventBus } from '@/utils/eventBus'
+import { searchStore } from '@/stores/searchStore'
+import Component from './SearchExcerptsScreen.vue'
 
-new class extends UnitTestCase {
-  protected test () {
-    it('executes searching when the search keyword is changed', async () => {
-      const mock = this.mock(searchStore, 'excerptSearch')
-      this.render(SearchExceptsScreen)
+describe('searchExcerptsScreen.vue', () => {
+  const h = createHarness()
 
-      eventBus.emit('SEARCH_KEYWORDS_CHANGED', 'search me')
+  it('executes searching when the search keyword is changed', async () => {
+    const mock = h.mock(searchStore, 'excerptSearch')
+    h.render(Component)
 
-      await waitFor(() => expect(mock).toHaveBeenCalledWith('search me'))
-    })
-  }
-}
+    eventBus.emit('SEARCH_KEYWORDS_CHANGED', 'search me')
+
+    await waitFor(() => expect(mock).toHaveBeenCalledWith('search me'))
+  })
+})

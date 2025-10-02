@@ -1,5 +1,5 @@
-import { audioService } from '@/services'
-import { logger } from '@/utils'
+import { audioService } from '@/services/audioService'
+import { logger } from '@/utils/logger'
 import shaders from './shaders'
 
 export const init = async (container: HTMLElement) => {
@@ -13,7 +13,7 @@ export const init = async (container: HTMLElement) => {
   analyzer.smoothingTimeConstant = 0.2
   analyzer.fftSize = 128
 
-  let spectrumData = new Uint8Array(analyzer.frequencyBinCount)
+  const spectrumData = new Uint8Array(analyzer.frequencyBinCount)
 
   const compileShader = (type, source) => {
     const shader = gl.createShader(type)!
@@ -21,7 +21,9 @@ export const init = async (container: HTMLElement) => {
     gl.compileShader(shader)
 
     const status = gl.getShaderParameter(shader, gl.COMPILE_STATUS)
-    if (status) return shader
+    if (status) {
+      return shader
+    }
 
     logger.error('shader compile error', gl.getShaderInfoLog(shader))
     gl.deleteShader(shader)
@@ -34,7 +36,9 @@ export const init = async (container: HTMLElement) => {
     gl.linkProgram(program)
 
     const status = gl.getProgramParameter(program, gl.LINK_STATUS)
-    if (status) return program
+    if (status) {
+      return program
+    }
 
     logger.error('program link error', gl.getProgramInfoLog(program))
     gl.deleteProgram(program)

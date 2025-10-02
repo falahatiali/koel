@@ -1,6 +1,13 @@
 <template>
   <Transition name="fade">
-    <button v-show="showing" ref="el" title="Scroll to top" type="button" @click="scrollToTop">
+    <button
+      v-show="showing"
+      ref="el"
+      class="sm:hidden block fixed right-[1.8rem] z-20 opacity-100 duration-500 transition-opacity rounded-full py-2 px-4 bg-black/50"
+      title="Scroll to top"
+      type="button"
+      @click="scrollToTop"
+    >
       <Icon :icon="faCircleUp" />&nbsp;
       Top
     </button>
@@ -10,12 +17,18 @@
 <script lang="ts" setup>
 import { faCircleUp } from '@fortawesome/free-solid-svg-icons'
 import { onMounted, ref } from 'vue'
-import { $ } from '@/utils'
+import { $ } from '@/utils/$'
 
 const el = ref<HTMLElement>()
 const showing = ref(false)
 
-const scrollToTop = () => $.scrollTo(el.value?.parentElement!, 0, 500, () => (showing.value = false))
+const scrollToTop = () => {
+  if (!el.value?.parentElement) {
+    return
+  }
+
+  $.scrollTo(el.value.parentElement, 0, 500, () => (showing.value = false))
+}
 
 onMounted(() => {
   el.value?.parentElement?.addEventListener('scroll', event => {
@@ -24,28 +37,14 @@ onMounted(() => {
 })
 </script>
 
-<style lang="scss" scoped>
+<style lang="postcss" scoped>
 button {
-  &.fade-enter, &.fade-leave-to {
-    opacity: 0;
-  }
-
-  position: fixed;
+  @apply border border-white/50 text-k-text-primary;
   bottom: calc(var(--footer-height) + 26px);
-  right: 1.8rem;
-  z-index: 20;
-  opacity: 1;
-  transition: opacity .5s;
-  border-radius: 9999px;
-  padding: 8px 16px;
-  background: rgba(0, 0, 0, .5);
-  border: 1px solid var(--color-text-primary);
-  color: var(--color-text-primary);
-}
 
-@media screen and (min-width: 415px) {
-  button {
-    display: none;
+  &.fade-enter,
+  &.fade-leave-to {
+    @apply opacity-0;
   }
 }
 </style>

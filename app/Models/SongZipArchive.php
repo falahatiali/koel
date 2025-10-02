@@ -3,7 +3,9 @@
 namespace App\Models;
 
 use App\Facades\Download;
+use App\Helpers\Ulid;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Str;
 use RuntimeException;
 use ZipArchive;
 
@@ -14,11 +16,11 @@ class SongZipArchive
 
     /**
      * Names of the files in the archive
-     * Format: [file-name.mp3' => currentFileIndex].
+     * Format: ['file-name.mp3' => currentFileIndex].
      */
     private array $fileNames = [];
 
-    public function __construct(string $path = '')
+    public function __construct(?string $path = null)
     {
         $this->path = $path ?: self::generateRandomArchivePath();
 
@@ -31,17 +33,15 @@ class SongZipArchive
 
     public function addSongs(Collection $songs): static
     {
-        $songs->each(function (Song $song): void {
-            $this->addSong($song);
-        });
+        $songs->each(fn (Song $song) => $this->addSong($song));
 
         return $this;
     }
 
     public function addSong(Song $song): static
     {
-        attempt(function () use ($song): void {
-            $path = Download::fromSong($song);
+        rescue(function () use ($song): void {
+            $path = Download::getLocalPath($song);
             $this->archive->addFile($path, $this->generateZipContentFileNameFromPath($path));
         });
 
@@ -71,10 +71,8 @@ class SongZipArchive
 
         if (array_key_exists($name, $this->fileNames)) {
             ++$this->fileNames[$name];
-            $parts = explode('.', $name);
-            $ext = $parts[count($parts) - 1];
-            $parts[count($parts) - 1] = $this->fileNames[$name] . ".$ext";
-            $name = implode('.', $parts);
+            $extension = Str::afterLast($name, '.');
+            $name = Str::beforeLast($name, '.') . $this->fileNames[$name] . ".$extension";
         } else {
             $this->fileNames[$name] = 1;
         }
@@ -84,9 +82,7 @@ class SongZipArchive
 
     private static function generateRandomArchivePath(): string
     {
-        // We use system's temp dir instead of storage_path() here, so that the generated files
-        // can be cleaned up automatically after server reboot.
-        return sprintf('%s%skoel-download-%s.zip', sys_get_temp_dir(), DIRECTORY_SEPARATOR, uniqid());
+        return artifact_path(sprintf('tmp/%s.zip', Ulid::generate()));
     }
 
     public function getArchive(): ZipArchive

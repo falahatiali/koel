@@ -1,8 +1,15 @@
-import { arrayify, logger, pluralize } from '@/utils'
-import { albumStore, artistStore, playlistFolderStore, playlistStore, songStore } from '@/stores'
+import { pluralize } from '@/utils/formatters'
+import { arrayify, getPlayableProp } from '@/utils/helpers'
+import { logger } from '@/utils/logger'
+import { albumStore } from '@/stores/albumStore'
+import { artistStore } from '@/stores/artistStore'
+import { playlistStore } from '@/stores/playlistStore'
+import { playlistFolderStore } from '@/stores/playlistFolderStore'
+import { playableStore } from '@/stores/playableStore'
+import { mediaBrowser } from '@/services/mediaBrowser'
 
-type Draggable = Song | Song[] | Album | Artist | Playlist | PlaylistFolder
-const draggableTypes = <const>['songs', 'album', 'artist', 'playlist', 'playlist-folder']
+type Draggable = MaybeArray<Playable> | Album | Artist | Genre | Playlist | PlaylistFolder | MaybeArray<Song | Folder>
+const draggableTypes = <const>['playables', 'album', 'artist', 'genre', 'playlist', 'playlist-folder', 'browser-media']
 type DraggableType = typeof draggableTypes[number]
 
 const createGhostDragImage = (event: DragEvent, text: string): void => {
@@ -19,7 +26,7 @@ const createGhostDragImage = (event: DragEvent, text: string): void => {
     document.body.appendChild(dragGhost)
   }
 
-  dragGhost.innerText = text
+  dragGhost.textContent = text
   event.dataTransfer.setDragImage(dragGhost, 0, 0)
 }
 
@@ -39,9 +46,11 @@ export const useDraggable = (type: DraggableType) => {
     let data: any
 
     switch (type) {
-      case 'songs':
-        dragged = arrayify(<Song>dragged)
-        text = dragged.length === 1 ? `${dragged[0].title} by ${dragged[0].artist_name}` : pluralize(dragged, 'song')
+      case 'playables':
+        dragged = arrayify(<Playable>dragged)
+        text = dragged.length === 1
+          ? `${dragged[0].title} by ${getPlayableProp(dragged[0], 'artist_name', 'podcast_author')}`
+          : pluralize(dragged, 'item')
 
         data = dragged.map(song => song.id)
         break
@@ -70,6 +79,18 @@ export const useDraggable = (type: DraggableType) => {
         data = dragged.id
         break
 
+      case 'browser-media':
+        dragged = arrayify(dragged as MaybeArray<Song | Folder>)
+        data = mediaBrowser.extractMediaReferences(dragged)
+        text = pluralize(dragged, 'item')
+        break
+
+      case 'genre':
+        dragged = <Genre>dragged
+        data = dragged.id
+        text = dragged.name || 'No Genre'
+        break
+
       default:
         return
     }
@@ -80,7 +101,7 @@ export const useDraggable = (type: DraggableType) => {
   }
 
   return {
-    startDragging
+    startDragging,
   }
 }
 
@@ -93,12 +114,14 @@ export const useDroppable = (acceptedTypes: DraggableType[]) => {
   const getDroppedData = (event: DragEvent) => {
     const type = getDragType(event)
 
-    if (!type) return null
+    if (!type) {
+      return null
+    }
 
     try {
-      return JSON.parse(event.dataTransfer?.getData(`application/x-koel.${type}`)!)
-    } catch (e) {
-      logger.warn('Failed to parse dropped data', e)
+      return JSON.parse(event.dataTransfer!.getData(`application/x-koel.${type}`)!)
+    } catch (error: unknown) {
+      logger.warn('Failed to parse dropped data', error)
       return null
     }
   }
@@ -107,41 +130,48 @@ export const useDroppable = (acceptedTypes: DraggableType[]) => {
     try {
       switch (getDragType(event)) {
         case 'playlist':
-          return playlistStore
-            .byId(parseInt(event.dataTransfer!.getData('application/x-koel.playlist'))) as T | undefined
+          const id = String(JSON.parse(event.dataTransfer!.getData('application/x-koel.playlist')))
+          return playlistStore.byId(id) as T | undefined
         default:
-          return
       }
-    } catch (error) {
+    } catch (error: unknown) {
       logger.error(error, event)
     }
   }
 
-  const resolveDroppedSongs = async (event: DragEvent) => {
+  const resolveDroppedItems = async (event: DragEvent) => {
     try {
       const type = getDragType(event)
-      if (!type) return <Song[]>[]
+
+      if (!type) {
+        return <Playable[]>[]
+      }
 
       const data = getDroppedData(event)
+
       switch (type) {
-        case 'songs':
-          return songStore.byIds(<string[]>data)
+        case 'playables':
+          return playableStore.byIds(<string[]>data)
         case 'album':
-          const album = await albumStore.resolve(<number>data)
-          return album ? await songStore.fetchForAlbum(album) : <Song[]>[]
+          const album = await albumStore.resolve(data)
+          return album ? await playableStore.fetchSongsForAlbum(album) : <Song[]>[]
         case 'artist':
-          const artist = await artistStore.resolve(<number>data)
-          return artist ? await songStore.fetchForArtist(artist) : <Song[]>[]
+          const artist = await artistStore.resolve(data)
+          return artist ? await playableStore.fetchSongsForArtist(artist) : <Song[]>[]
         case 'playlist':
-          const playlist = playlistStore.byId(<number>data)
-          return playlist ? await songStore.fetchForPlaylist(playlist) : <Song[]>[]
+          const playlist = playlistStore.byId(<string>data)
+          return playlist ? await playableStore.fetchForPlaylist(playlist) : <Song[]>[]
         case 'playlist-folder':
           const folder = playlistFolderStore.byId(<string>data)
-          return folder ? await songStore.fetchForPlaylistFolder(folder) : <Song[]>[]
+          return folder ? await playableStore.fetchForPlaylistFolder(folder) : <Song[]>[]
+        case 'browser-media':
+          return await playableStore.resolveSongsFromMediaReferences(data)
+        case 'genre':
+          return await playableStore.fetchSongsByGenre(<string>data)
         default:
           throw new Error(`Unknown drag type: ${type}`)
       }
-    } catch (error) {
+    } catch (error: unknown) {
       logger.error(error, event)
       return <Song[]>[]
     }
@@ -151,6 +181,6 @@ export const useDroppable = (acceptedTypes: DraggableType[]) => {
     acceptsDrop,
     getDroppedData,
     resolveDroppedValue,
-    resolveDroppedSongs
+    resolveDroppedItems,
   }
 }

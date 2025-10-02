@@ -2,57 +2,69 @@
 
 namespace App\Services;
 
-use App\Builders\SongBuilder;
-use App\Models\Album;
-use App\Models\Artist;
 use App\Models\Song;
 use App\Models\User;
 use App\Repositories\AlbumRepository;
 use App\Repositories\ArtistRepository;
+use App\Repositories\Contracts\ScoutableRepository;
+use App\Repositories\PodcastRepository;
+use App\Repositories\RadioStationRepository;
 use App\Repositories\SongRepository;
 use App\Values\ExcerptSearchResult;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Log;
+use Throwable;
 
 class SearchService
 {
-    public const DEFAULT_EXCERPT_RESULT_COUNT = 6;
-    public const DEFAULT_MAX_SONG_RESULT_COUNT = 500;
+    public const DEFAULT_EXCERPT_RESULT_LIMIT = 6;
+    public const DEFAULT_SONG_RESULT_LIMIT = 500;
 
     public function __construct(
-        private SongRepository $songRepository,
-        private AlbumRepository $albumRepository,
-        private ArtistRepository $artistRepository
+        private readonly SongRepository $songRepository,
+        private readonly ArtistRepository $artistRepository,
+        private readonly AlbumRepository $albumRepository,
+        private readonly PodcastRepository $podcastRepository,
+        private readonly RadioStationRepository $radioStationRepository,
     ) {
     }
 
     public function excerptSearch(
         string $keywords,
-        ?User $scopedUser = null,
-        int $count = self::DEFAULT_EXCERPT_RESULT_COUNT
+        int $limit = self::DEFAULT_EXCERPT_RESULT_LIMIT,
+        ?User $scopedUser = null
     ): ExcerptSearchResult {
         $scopedUser ??= auth()->user();
 
-        return ExcerptSearchResult::make(
-            $this->songRepository->getMany(
-                ids: Song::search($keywords)->get()->take($count)->pluck('id')->all(),
-                inThatOrder: true,
-                scopedUser: $scopedUser
-            ),
-            $this->artistRepository->getMany(Artist::search($keywords)->get()->take($count)->pluck('id')->all(), true),
-            $this->albumRepository->getMany(Album::search($keywords)->get()->take($count)->pluck('id')->all(), true),
-        );
+        $results = [];
+
+        /** @var ScoutableRepository $repository */
+        foreach (
+            [
+                $this->songRepository,
+                $this->artistRepository,
+                $this->albumRepository,
+                $this->podcastRepository,
+                $this->radioStationRepository,
+            ] as $repository
+        ) {
+            try {
+                $results[] = $repository->search($keywords, $limit, $scopedUser);
+            } catch (Throwable $e) {
+                Log::error('Scout search failed', ['exception' => $e]);
+                $results[] = new Collection();
+            }
+        }
+
+        return ExcerptSearchResult::make(...$results);
     }
 
     /** @return Collection|array<array-key, Song> */
     public function searchSongs(
         string $keywords,
         ?User $scopedUser = null,
-        int $limit = self::DEFAULT_MAX_SONG_RESULT_COUNT
+        int $limit = self::DEFAULT_SONG_RESULT_LIMIT
     ): Collection {
-        return Song::search($keywords)
-            ->query(static function (SongBuilder $builder) use ($scopedUser, $limit): void {
-                $builder->withMeta($scopedUser ?? auth()->user())->limit($limit);
-            })
-            ->get();
+        return $this->songRepository->search($keywords, $limit, $scopedUser);
     }
 }
